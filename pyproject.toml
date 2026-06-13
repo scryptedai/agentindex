@@ -12,6 +12,10 @@ dependencies = [
     "python-dotenv (>=1.2.2,<2.0.0)",
 ]
 
+[project.scripts]
+agentindex-backfill = "agentindex.cli:main_backfill"
+agentindex-sync = "agentindex.cli:main_sync"
+
 [tool.poetry]
 packages = [{include = "agentindex", from = "src"}]
 

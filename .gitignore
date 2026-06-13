@@ -54,3 +54,6 @@ Thumbs.db
 
 # Cursor (local IDE config)
 .cursor/
+
+# Ingested chain data (local corpus)
+data/
