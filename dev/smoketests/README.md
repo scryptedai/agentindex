@@ -15,6 +15,7 @@ From the repo root:
 ```bash
 poetry run python dev/smoketests/bigquery_connect.py
 poetry run python dev/smoketests/erc8004_agents.py
+poetry run python dev/smoketests/erc8004_day_index.py
 ```
 
 Each script exits `0` on success, non-zero on failure. Missing credentials should
@@ -87,3 +88,28 @@ agent_id=22709  uri=ipfs://QmZyYPdcMaaMNCRXyiHXvPYK1DP8pfnCPBC4N9hPHnyhD8
 
 Do not hardcode registry addresses or topic0 hashes in library code until confirmed
 from the contracts repo ABI and recorded in `docs/SOURCES.md`.
+
+---
+
+## Mission 3 — One-day Identity + Reputation index slice
+
+`erc8004_day_index.py` pulls **one calendar day** of mainnet logs for:
+
+- **Identity registry** — decode all `Registered` events that day
+- **Reputation registry** — decode all `NewFeedback` events that day
+
+### Config
+
+```env
+BQ_PROBE_DAY=2026-02-01
+BQ_MAX_BYTES_BILLED=3221225472
+```
+
+**Requires ~3 GB cap per query** (~2.3 GB scanned per registry per day, observed dry-run).
+The script **dry-runs before each query** and aborts if the estimate exceeds the cap.
+
+### Cost
+
+Two queries per run (identity + reputation): expect **~4.3 GB total** billed for one day.
+
+Verified default day `2026-02-01` has identity activity (70 registrations observed in prior probes).
