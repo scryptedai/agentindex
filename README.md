@@ -1,6 +1,6 @@
 # AgentIndex
 
-Indexer that turns on-chain ERC-8004 agent data into a fast, local Postgres corpus.
+Indexer that turns on-chain ERC-8004 agent data into a fast, local SQLite corpus.
 
 ## Setup
 
@@ -68,3 +68,41 @@ If you ran an older day-chunked backfill, remove `data/ethereum/` before re-runn
 Backfill writes `identity/events.jsonl` and `reputation/events.jsonl`.
 
 Smoketests live under `dev/smoketests/` for manual connectivity checks.
+
+## Build SQLite index (`data/` → `agentindex.db`)
+
+After ingest, rebuild the queryable corpus from JSONL. No BigQuery credentials needed.
+
+```bash
+poetry run agentindex-build
+```
+
+Writes `data/agentindex.db` (override with `INDEX_DB`). Tables:
+
+| Table | Contents |
+|-------|----------|
+| `agents` | Identity registry mints (`agent_id`, `owner`, `token_uri`, first seen) |
+| `reputation_feedback` | One row per `NewFeedback` event |
+| `reputation_agg` | Mean score per agent (non-revoked feedback) |
+| `registries` | Per-registry watermark `(block_number, log_index)` |
+
+Example queries:
+
+```sql
+-- Newest agents
+SELECT agent_id, owner, token_uri, first_seen_at
+FROM agents ORDER BY first_seen_block DESC LIMIT 20;
+
+-- Top-rated agents (min 3 reviews)
+SELECT a.agent_id, a.token_uri, r.composite, r.n_feedback
+FROM reputation_agg r
+JOIN agents a USING (network_id, agent_id)
+WHERE r.n_feedback >= 3
+ORDER BY r.composite DESC LIMIT 20;
+
+-- Agents registered since block
+SELECT agent_id, owner, first_seen_block
+FROM agents WHERE first_seen_block > 24500000;
+```
+
+Re-run `agentindex-build` after `agentindex-sync` to pick up new JSONL chunks.

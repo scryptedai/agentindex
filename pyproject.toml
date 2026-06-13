@@ -1,7 +1,7 @@
 [project]
 name = "agentindex"
 version = "0.1.0"
-description = "Indexer that turns on-chain ERC-8004 agent data into a fast, local Postgres corpus."
+description = "Indexer that turns on-chain ERC-8004 agent data into a fast, local SQLite corpus."
 authors = [
     {name = "Tim Cotten"}
 ]
@@ -15,6 +15,7 @@ dependencies = [
 [project.scripts]
 agentindex-backfill = "agentindex.cli:main_backfill"
 agentindex-sync = "agentindex.cli:main_sync"
+agentindex-build = "agentindex.cli:main_build"
 
 [tool.poetry]
 packages = [{include = "agentindex", from = "src"}]

@@ -74,3 +74,40 @@ class Settings:
     def sync_through_date(self) -> date:
         """Last calendar day safe to index given public dataset lag."""
         return (datetime.now(timezone.utc).date() - timedelta(days=self.lag_days))
+
+
+@dataclass(frozen=True)
+class IndexSettings:
+    """Config for building the local SQLite corpus (no BigQuery required)."""
+
+    data_dir: Path
+    db_path: Path
+    network: str = "ethereum"
+    network_id: int = 1
+
+    @classmethod
+    def load(cls) -> IndexSettings:
+        load_dotenv(_repo_root() / ".env")
+
+        data_raw = os.environ.get("DATA_DIR", "data").strip()
+        data_dir = Path(data_raw)
+        if not data_dir.is_absolute():
+            data_dir = _repo_root() / data_dir
+
+        db_raw = os.environ.get("INDEX_DB", "").strip()
+        if db_raw:
+            db_path = Path(db_raw)
+            if not db_path.is_absolute():
+                db_path = _repo_root() / db_path
+        else:
+            db_path = data_dir / "agentindex.db"
+
+        network = os.environ.get("INDEX_NETWORK", "ethereum").strip() or "ethereum"
+        network_id = _int_env("NETWORK_ID", 1)
+
+        return cls(
+            data_dir=data_dir,
+            db_path=db_path,
+            network=network,
+            network_id=network_id,
+        )
