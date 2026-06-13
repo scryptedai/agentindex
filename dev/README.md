@@ -17,8 +17,9 @@ dev/
 
 | Mission | Smoke test | Verifies |
 |---------|------------|----------|
-| 1 | `smoketests/bigquery_connect.py` | GCP auth, dataset access, bounded query |
-| 2+ | TBD | Postgres migrate, identity backfill, sync, … |
+| 1 | `smoketests/bigquery_connect.py` | GCP auth, `crypto_ethereum.blocks`, bounded query |
+| 2 | `smoketests/erc8004_agents.py` | ERC-8004 `Registered` events on `goog_blockchain_*`.logs |
+| 3+ | TBD | Postgres migrate, incremental sync, … |
 
 Open questions from BUILD §0 must be resolved **before** hardcoding values in
 library code. Pin confirmed values in `docs/SOURCES.md` as they are verified.
