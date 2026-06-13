@@ -1,0 +1,17 @@
+[project]
+name = "agentindex"
+version = "0.1.0"
+description = "Indexer that turns on-chain ERC-8004 agent data into a fast, local Postgres corpus."
+authors = [
+    {name = "Tim Cotten"}
+]
+readme = "README.md"
+requires-python = ">=3.11,<4.0"
+dependencies = []
+
+[tool.poetry]
+packages = [{include = "agentindex", from = "src"}]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
