@@ -10,6 +10,11 @@ from datetime import datetime
 from typing import Any
 from urllib.parse import urlparse
 
+from agentindex.frontend.visuals import (
+    build_chart_marks,
+    build_config_snapshot,
+    build_cross_chain_flow,
+)
 from agentindex.frontend.narratives.engine import load_templates, render
 from agentindex.frontend.narratives.metrics import (
     agent_metrics,
@@ -872,6 +877,7 @@ def build_overview_narratives(
             "subtitle": cov_sub,
             "insight": cov_insight,
         },
+        "chart_marks": build_chart_marks(raw),
         "score_distribution": {
             "title": tpl["score_distribution"]["title"],
             "subtitle": render(
@@ -1006,12 +1012,16 @@ def build_identity_narratives(
         "callouts": callouts,
         "cross_chain_callout": cross_chain,
         "cross_chain_subtitle": subtitle_bundle["text"] if subtitle_bundle else "",
+        "cross_chain_flow": build_cross_chain_flow(
+            raw,
+            home_chain_id=ctx.get("home_chain_id", net_ctx.get("chain_id", 1) if net_ctx else 1),
+        ),
     }
 
 
 def _format_bytes_kpi(bytes_billed: int) -> tuple[str, str]:
     if bytes_billed <= 0:
-        return "—", ""
+        return "-", ""
     gb = bytes_billed / 1e9
     if gb >= 0.05:
         return f"{gb:.1f}", "GB"
@@ -1132,6 +1142,9 @@ def build_payload(
             "note": bytes_note,
         },
     }
+    if config is not None:
+        corpus_block["config_snapshot"] = build_config_snapshot(config)
+    corpus_block["db_download"] = "/api/download/db"
     dossier_tpl = load_templates()["dossier"]
     dossier_rx = load_reactions()["dossier"]
     not_found, _ = react_text(dossier_rx["not_found"], net_ctx)

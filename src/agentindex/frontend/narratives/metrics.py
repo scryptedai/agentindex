@@ -28,7 +28,7 @@ def overview_metrics(raw: dict[str, Any], signal_count: int) -> dict[str, Any]:
     silent_pct = 100 * silent / agents
 
     days = raw["daily_registrations"]
-    date_range = f"{days[0]['day']} – {days[-1]['day']}" if days else "-"
+    date_range = f"{days[0]['day']} - {days[-1]['day']}" if days else "-"
     reg_values = [int(d["registrations"]) for d in days]
     median_reg = statistics.median(reg_values) if reg_values else 0
     spike = max(days, key=lambda d: d["registrations"]) if days else None

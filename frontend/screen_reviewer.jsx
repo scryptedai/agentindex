@@ -23,8 +23,8 @@ function ScreenReviewer({initial}){
     </div>
 
     <Card className="mb16">
-      <CardHead title="Reviewer → agent network"
-        sub="Edge colour = score given (red → green). Node size = review volume. Click any agent to open its dossier."
+      <CardHead title="Reviewer to agent network"
+        sub="Edge color is score given (red to green). Node size is review volume. Click any agent to open its dossier."
         right={<div className="legend">
           <span className="lk"><span className="sw" style={{background:'#C5221F'}}></span>≤20</span>
           <span className="lk"><span className="sw" style={{background:'#E37400'}}></span>40</span>
@@ -63,8 +63,8 @@ function ScreenReviewer({initial}){
       <div className="col gap16">
         <Card className="card-pad">
           <div className="section-title">Review independence</div>
-          <div className="section-sub mb16">{AX.reviewerNarr?.independence_subtitle || "Share of an agent's feedback that comes from clients who reviewed ≤3 agents total."}</div>
-          {(indepExamples.length ? indepExamples : [{agent_id:22721,independence_pct:95}]).map(item=>{
+          <div className="section-sub mb16">{AX.reviewerNarr?.independence_subtitle || "Share of an agent's feedback from clients who reviewed 3 or fewer agents total."}</div>
+          {indepExamples.map(item=>{
             const a=AX.agentById[item.agent_id];
             const v=item.independence_pct != null ? item.independence_pct : (a&&a.independence!=null?Math.round(a.independence*100):0);
             return <div key={item.agent_id} className="mt12">
@@ -81,7 +81,7 @@ function ScreenReviewer({initial}){
             return <div key={c} className="mt12">
               <div className="flex aic gap8 mb8"><AddressChip value={c}/>{st&&<Tag tone={st.tone}>{st.label}</Tag>}</div>
               {st&&<div className="muted" style={{fontSize:13}}>{st.note}</div>}
-              {p&&<div className="faint mono mt8" style={{fontSize:11.5}}>active {AX.fmtDate(p.first_review)} → {AX.fmtDate(p.last_review)}</div>}
+              {p&&<div className="faint mono mt8" style={{fontSize:11.5}}>active {AX.fmtDate(p.first_review)} to {AX.fmtDate(p.last_review)}</div>}
             </div>;})}
         </Card>
       </div>

@@ -1,11 +1,10 @@
 /* ============================================================
    AgentIndex: Overview ("State of the Registry")
    ============================================================ */
-function ScreenOverview({tweaks}){
+function ScreenOverview(){
   const cs = AX.corpus;
   const narr = AX.narr || {};
-  const [mode,setMode]=useState(tweaks.overviewHero||'pulse');
-  useEffect(()=>{ setMode(tweaks.overviewHero||'pulse'); },[tweaks.overviewHero]);
+  const [mode,setMode]=useState('pulse');
 
   const silent = cs.agents - cs.agents_with_feedback;
   const hero = narr.hero || {};
@@ -29,10 +28,9 @@ function ScreenOverview({tweaks}){
           {v:'pulse',label:'Pulse'},{v:'score',label:'Score'},{v:'log',label:'Log'},{v:'cumulative',label:'Growth'}]}/>}/>
       <div className="card-pad" style={{paddingTop:16}}>
         <RegistryPulse mode={mode} height={340}/>
-        <div className="flex aic gap12 mt12" style={{flexWrap:'wrap'}}>
-          <Tag tone="blue" icon="info">Reading</Tag>
-          <span className="muted" style={{fontSize:13}}>{heroBlock.insight || ''}</span>
-        </div>
+        {heroBlock.insight && (
+          <div className="muted mt12" style={{fontSize:13}}>{heroBlock.insight}</div>
+        )}
       </div>
     </Card>
 

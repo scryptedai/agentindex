@@ -3,7 +3,7 @@
    Reviewer Lens bipartite + Identity collision clusters + cross-chain.
    ============================================================ */
 
-/* score -> edge color (red low → green high) */
+/* score -> edge color (red low to green high) */
 function edgeColor(s){
   if(s>=80) return '#137333';
   if(s>=60) return '#9e9d00';
@@ -62,7 +62,7 @@ function BipartiteGraph({clients, height=520}){
         const d=`M ${leftX} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${rightX} ${y2}`;
         return <path key={ri+'-'+ei} d={d} fill="none" stroke={edgeColor(e.avg_score)}
           strokeWidth={Math.min(1+e.reviews*0.5,3)} opacity="0.45"
-          onMouseMove={ev=>move(ev,`<b>→ Agent ${e.agent_id}</b><br>${e.reviews} review(s) · avg <b>${e.avg_score.toFixed(1)}</b>`)}
+          onMouseMove={ev=>move(ev,`<b>Agent ${e.agent_id}</b><br>${e.reviews} review(s) · avg <b>${e.avg_score.toFixed(1)}</b>`)}
           onMouseLeave={()=>setTip(null)}/>;
       }))}
       {/* agent nodes */}
@@ -144,20 +144,19 @@ function IdentityGraph({height=560}){
 /* ---------------- Cross-chain flow ---------------- */
 function CrossChainFlow({height=240}){
   const [tip,setTip]=useState(null); const wrapRef=useRef(null);
-  // corpus: 304 cross-regs, 288 same-chain (eth self-ref), Base 8453 ~10, plus BSC/Polygon from spotlight
-  const flows=[
-    {chain:'Ethereum 1 (self-ref)', n:288, color:'#5F6368'},
-    {chain:'Base 8453', n:10, color:'#1A73E8'},
-    {chain:'BSC 56', n:4, color:'#F9AB00'},
-    {chain:'Polygon 137', n:2, color:'#8247E5'},
-  ];
+  const flow = (AX.identityNarr && AX.identityNarr.cross_chain_flow) || {};
+  const flows = flow.flows || [];
+  const total = flow.total || flows.reduce((s,f)=>s+f.n,0) || 1;
   const W=760, hubX=150, hubY=height/2, tgtX=W-210;
-  const total=flows.reduce((s,f)=>s+f.n,0);
+  const span = Math.max(flows.length - 1, 1);
   function move(e,html){ const r=wrapRef.current.getBoundingClientRect(); setTip({x:e.clientX-r.left,y:e.clientY-r.top,html}); }
+  if(!flows.length){
+    return <div className="graph-wrap flex aic jc" style={{height,color:'var(--ink-3)',fontSize:14}}>No cross-chain registration refs indexed.</div>;
+  }
   return (<div className="graph-wrap" ref={wrapRef} style={{height}}>
     <svg width="100%" height={height} viewBox={`0 0 ${W} ${height}`} preserveAspectRatio="xMidYMid meet">
       {flows.map((f,i)=>{
-        const y=40+i*(height-80)/(flows.length-1);
+        const y=40+i*(height-80)/span;
         const w=Math.max(2,f.n/total*60);
         return <g key={f.chain}>
           <path d={`M ${hubX} ${hubY} C ${(hubX+tgtX)/2} ${hubY}, ${(hubX+tgtX)/2} ${y}, ${tgtX} ${y}`}
@@ -168,7 +167,7 @@ function CrossChainFlow({height=240}){
         </g>;
       })}
       <circle cx={hubX} cy={hubY} r={34} fill="#E8F0FE" stroke="#1A73E8" strokeWidth="1.8"/>
-      <text x={hubX} y={hubY-2} textAnchor="middle" fontSize="12" fontWeight="700" fill="#1A73E8">304</text>
+      <text x={hubX} y={hubY-2} textAnchor="middle" fontSize="12" fontWeight="700" fill="#1A73E8">{AX.fmtInt(total)}</text>
       <text x={hubX} y={hubY+13} textAnchor="middle" fontSize="9" fill="#5F6368">cross-regs</text>
     </svg>
     <GTip tip={tip}/>

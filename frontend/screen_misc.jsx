@@ -25,7 +25,7 @@ function ScreenExplorer({initial}){
   rows=rows.slice().sort((a,b)=>{
     if(sort==='composite') return (b.composite||-1)-(a.composite||-1);
     if(sort==='flags') return b.flags-a.flags;
-    return (b.seen?new Date(b.seen):0)-(a.seen?new Date(a.seen):0); // recent
+    return (b.seen?new Date(b.seen):0)-(a.seen?new Date(a.seen):0);
   });
 
   const netLabel = (AX.meta && AX.meta.network && AX.meta.network.active && AX.meta.network.active.label) || 'Ethereum Mainnet';
@@ -88,8 +88,11 @@ window.ScreenExplorer = ScreenExplorer;
 /* ---------------- Corpus ---------------- */
 function ScreenCorpus(){
   const cs=AX.corpus;
-  const bytesKpi = (AX.corpusNarr && AX.corpusNarr.kpi && AX.corpusNarr.kpi.bytes_billed) || {};
-  const honesty = AX.corpusNarr && AX.corpusNarr.honesty_callout;
+  const narr = AX.corpusNarr || {};
+  const bytesKpi = narr.kpi && narr.kpi.bytes_billed || {};
+  const honesty = narr.honesty_callout;
+  const configSnap = narr.config_snapshot || '';
+  const dbUrl = narr.db_download || '/api/download/db';
   const tables=[
     {t:'agents',rows:cs.agents}, {t:'reputation_feedback',rows:cs.feedback_events},
     {t:'reputation_agg',rows:cs.agents_with_feedback}, {t:'ens_links',rows:cs.ens_links},
@@ -112,7 +115,7 @@ conn = sqlite3.connect("data/agentindex.db")
 feedback = pd.read_sql("SELECT * FROM reputation_feedback", conn)
 feedback["block_timestamp"] = pd.to_datetime(feedback["block_timestamp"])
 
-# launch-burst detector (≥20 reviews within 2h of first)
+# launch-burst detector (>=20 reviews within 2h of first)
 fb = feedback.sort_values(["agent_id","block_timestamp"])
 t0 = fb.groupby("agent_id")["block_timestamp"].transform("min")
 early = fb[fb["block_timestamp"] <= t0 + pd.Timedelta("2h")]
@@ -123,21 +126,21 @@ bursts[bursts >= 20]`;
     <div className="page-head">
       <PageNetwork/>
       <div className="page-eyebrow">Corpus</div>
-      <h1 className="page-title">{AX.corpusNarr?.page?.title || 'Provenance & export'}</h1>
-      <p className="page-desc">{AX.corpusNarr?.page?.description || ''}</p>
+      <h1 className="page-title">{narr.page?.title || 'Provenance & export'}</h1>
+      <p className="page-desc">{narr.page?.description || ''}</p>
     </div>
 
     <div className="grid mb16" style={{gridTemplateColumns:'repeat(4,1fr)'}}>
-      <KpiCard label="Indexed through" labelIcon="corpus" value={AX.fmtDate(cs.generated_at)} note="Batch pipeline · lag configurable"/>
-      <KpiCard label="Schema version" labelIcon="info" value={'v'+ (AX.meta.schema_version || '?')} note={<>tables from local SQLite</>}/>
-      <KpiCard label="Network" labelIcon="identity" value={AX.meta.network?.active?.label || 'Ethereum Mainnet'} note={<>chain <b>{AX.meta.network?.active?.chain_id || 1}</b> · from config/default.json</>}/>
-      <KpiCard label="Bytes billed (ingest)" labelIcon="download" value={bytesKpi.value || '—'} unit={bytesKpi.unit || ''} note={bytesKpi.note || 'registry + ENS BigQuery scans combined'}/>
+      <KpiCard label="Indexed through" labelIcon="corpus" value={AX.fmtDate(cs.generated_at)} note="Batch ingest"/>
+      <KpiCard label="Index schema" labelIcon="info" value={'v'+ (AX.meta.schema_version || '?')} note={<>SQLite table layout version</>}/>
+      <KpiCard label="Network" labelIcon="identity" value={AX.meta.network?.active?.label || 'Ethereum Mainnet'} note={<>chain <b>{AX.meta.network?.active?.chain_id || 1}</b></>}/>
+      <KpiCard label="Bytes billed (ingest)" labelIcon="download" value={bytesKpi.value || '-'} unit={bytesKpi.unit || ''} note={bytesKpi.note || 'registry + ENS BigQuery scans combined'}/>
     </div>
 
     <div className="grid" style={{gridTemplateColumns:'1fr 1.3fr'}}>
       <div className="col gap16">
         <Card>
-          <CardHead title="Tables" sub="Row counts in this slice"/>
+          <CardHead title="Tables" sub="Row counts in indexed tables"/>
           <table className="tbl">
             <tbody>{tables.map(r=><tr key={r.t}>
               <td className="mono" style={{fontSize:12.5}}>{r.t}</td>
@@ -151,32 +154,24 @@ bursts[bursts >= 20]`;
             <Tag tone="grey">JSONL</Tag><Icon name="arrowr" size={16} style={{color:'var(--ink-3)'}}/>
             <Tag tone="green">SQLite</Tag>
           </div>
-          <div className="muted mt12" style={{fontSize:12.5}}>You own the query, the bytes billed, and the JSONL. SQLite is join-friendly for pandas / notebooks.</div>
+          <div className="muted mt12" style={{fontSize:12.5}}>Ingest writes JSONL partitions, then builds a local SQLite index for queries and export.</div>
           <div className="flex gap8 mt16 wrap">
-            <Btn variant="out" icon="download" size="sm">agentindex.db</Btn>
-            <Btn variant="out" icon="download" size="sm">parquet</Btn>
-            <Btn variant="out" icon="download" size="sm">JSONL bundle</Btn>
+            <Btn variant="out" icon="download" size="sm" onClick={()=>{ window.location.href = dbUrl; }}>Download SQLite</Btn>
           </div>
         </Card>
-        <Card className="card-pad">
+        {configSnap && <Card className="card-pad">
           <div className="section-title mb8">Config snapshot</div>
-          <pre className="json">{`networks   = ["ethereum"]
-chain_id   = 1
-registry   = 0x8004A169FB4a…539a432
-bq_dataset = erc8004_logs.identity
-           , erc8004_logs.reputation
-ens_source = ensip-25 + registration json
-refresh    = batch (manual / cron)`}</pre>
-        </Card>
+          <pre className="json">{configSnap}</pre>
+        </Card>}
       </div>
 
       <div className="col gap16">
         <Card>
-          <CardHead title="Re-run BigQuery query" sub="The exact SQL behind the factory + collision views" right={<Btn variant="text" icon="external" size="sm">Open in console</Btn>}/>
+          <CardHead title="Example SQL" sub="Factory owners and ENS collisions"/>
           <div className="card-pad"><div className="code">{sql}</div></div>
         </Card>
         <Card>
-          <CardHead title="Reproduce in a notebook" sub="Same corpus, in pandas" right={<Btn variant="text" icon="notebook" size="sm">Download .ipynb</Btn>}/>
+          <CardHead title="Example notebook" sub="Launch-burst detection in pandas"/>
           <div className="card-pad"><div className="code">{py}</div></div>
         </Card>
         <Callout tone={honesty?.tone || 'blue'} icon={honesty?.icon || 'info'}>{honesty?.body || ''}</Callout>

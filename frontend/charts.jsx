@@ -77,18 +77,17 @@ function RegistryPulse({mode='pulse', height=340}){
   const fbVals = reg.map(d=> fbMap[d.day]? fbMap[d.day].feedback : 0);
   const scoreVals = reg.map(d=> fbMap[d.day]? fbMap[d.day].avg_score : null);
   let cum=0; const cumVals = reg.map(d=>{ cum+=d.registrations; return cum; });
-  const marksFull=[{label:'Feb 9',text:'downvote storm',color:C.red},
-               {label:'Feb 14',text:'751 mints',color:C.amberLine},
-               {label:'Feb 25',text:'1,098 mints',color:C.amberLine},
-               {label:'Mar 28',text:'2,345 mints',color:C.red}];
+  const marksByMode = AX.chartMarks || {};
+  const modeKey = mode === 'log' ? 'log' : mode;
 
   const ref = useChart(()=>{
     let cfg;
+    const marks = marksByMode[modeKey] || marksByMode.pulse || [];
     if(mode==='cumulative'){
       cfg = {type:'line', data:{labels, datasets:[{label:'Cumulative agents',data:cumVals,
         borderColor:C.blue,backgroundColor:C.blueSoft,fill:true,tension:.3,pointRadius:0,borderWidth:2}]},
         options:baseOpts({yTitle:'Agents (cumulative)'}),
-        plugins:[annotPlugin([{label:'Mar 28',text:'+2,345',color:C.red}])]};
+        plugins:[annotPlugin(marksByMode.cumulative || [])]};
     } else if(mode==='score'){
       cfg = {type:'bar', data:{labels, datasets:[
         {type:'bar',label:'Feedback events',data:fbVals,backgroundColor:'rgba(26,115,232,0.22)',
@@ -96,7 +95,7 @@ function RegistryPulse({mode='pulse', height=340}){
         {type:'line',label:'Avg score',data:scoreVals,borderColor:C.amberLine,backgroundColor:C.amberLine,
          yAxisID:'y1',tension:.3,pointRadius:0,borderWidth:2,spanGaps:true,order:1}]},
         options:baseOpts({yTitle:'Feedback / day', y1:{min:0,max:100,title:'Avg daily score'}}),
-        plugins:[annotPlugin([{label:'Feb 9',text:'mean 1.38',color:C.red}])]};
+        plugins:[annotPlugin(marksByMode.score || [])]};
     } else {
       const logY = mode==='log';
       cfg = {type:'bar', data:{labels, datasets:[
@@ -106,7 +105,7 @@ function RegistryPulse({mode='pulse', height=340}){
          fill:true,yAxisID: logY?'y':'y1',tension:.3,pointRadius:0,borderWidth:2,order:1}]},
         options:baseOpts({yTitle: logY?'Registrations / day (log)':'Registrations / day', yType:logY?'logarithmic':'linear',
           y1: logY?null:{min:0,title:'Feedback / day'}}),
-        plugins:[annotPlugin(marksFull)]};
+        plugins:[annotPlugin(marks)]};
     }
     return cfg;
   }, [mode]);
@@ -139,10 +138,10 @@ function LorenzCurve({height=260}){
       {label:'Equality',data:[{x:0,y:0},{x:100,y:100}],borderColor:'#BDC1C6',borderDash:[5,4],pointRadius:0,borderWidth:1.2,fill:false}
     ]},
     options:{ parsing:false, plugins:{tooltip:{callbacks:{
-        title:()=>'', label:c=>`Top ${c.parsed.x.toFixed(0)}% owners → ${c.parsed.y.toFixed(0)}% of agents`}}},
+        title:()=>'', label:c=>`Top ${c.parsed.x.toFixed(0)}% owners hold ${c.parsed.y.toFixed(0)}% of agents`}}},
       scales:{
         x:{type:'linear',min:0,max:100,grid:{color:C.grid},border:{display:false},
-           title:{display:true,text:'Owners (ranked by holdings) →',color:C.ink2,font:{size:11}},ticks:{color:C.ink2,callback:v=>v+'%'}},
+           title:{display:true,text:'Owners (ranked by holdings)',color:C.ink2,font:{size:11}},ticks:{color:C.ink2,callback:v=>v+'%'}},
         y:{type:'linear',min:0,max:100,grid:{color:C.grid},border:{display:false},
            title:{display:true,text:'Share of agents',color:C.ink2,font:{size:11}},ticks:{color:C.ink2,callback:v=>v+'%'}}}}
   }),[]);

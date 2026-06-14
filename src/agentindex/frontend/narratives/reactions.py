@@ -114,7 +114,11 @@ def react_pair(block: dict[str, list[dict[str, Any]]], ctx: dict[str, Any]) -> d
 
 def react_why(detail: str, ctx: dict[str, Any]) -> tuple[str, str | None]:
     """Render why-it-matters copy for a sybil signal detail category."""
-    group = load_reactions()["sybil"]["why_matters"].get(detail, [])
-    if not group:
-        return "", None
-    return react_text(group, ctx)
+    sybil = load_reactions()["sybil"]
+    group = sybil["why_matters"].get(detail, [])
+    if group:
+        return react_text(group, ctx)
+    fallback = sybil.get("why_default", [])
+    if fallback:
+        return react_text(fallback, ctx)
+    return "", None

@@ -121,9 +121,7 @@ Re-run `agentindex-build` after `agentindex-sync` to pick up new JSONL chunks.
 
 ## Web dashboard (`poetry run frontend`)
 
-Reputation intelligence UI over the local SQLite corpus, not a leaderboard explorer.
-Reads live data from `data/agentindex.db` via FastAPI; copy and sybil signals are
-computed server-side from [`src/agentindex/frontend/narratives/templates.json`](src/agentindex/frontend/narratives/templates.json).
+Dashboard over the local SQLite corpus. Copy and sybil signals are computed server-side from [`src/agentindex/frontend/narratives/`](src/agentindex/frontend/narratives/).
 
 ```bash
 poetry run agentindex-build   # if needed
@@ -136,10 +134,9 @@ poetry run frontend           # http://127.0.0.1:8787
 | `/api/bootstrap` | Full corpus + derived metrics + narrative copy (JSON) |
 | `/api/agents/{id}` | Single-agent dossier on demand |
 | `POST /api/reload` | Refresh cache after rebuild |
+| `/api/download/db` | Download the SQLite index file |
 
-Static assets live in [`frontend/`](frontend/) (ported from the Claude Design export).
-Narrative templates fill titles, KPI notes, callouts, and sybil signal descriptions from
-actual corpus statistics, not hard-coded LLM prose.
+Static UI lives in [`frontend/`](frontend/). Narrative rules in `reactions.json` fill titles, KPI notes, callouts, and sybil signal descriptions from corpus statistics.
 
 Optional env: `FRONTEND_HOST`, `FRONTEND_PORT` (default `8787`), `FRONTEND_RELOAD=1` for dev.
 

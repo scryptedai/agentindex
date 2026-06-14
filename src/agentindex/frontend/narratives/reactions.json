@@ -60,7 +60,7 @@
           "id": "score_default",
           "priority": 0,
           "default": true,
-          "text": "Mean daily score varies with volume; inspect reviewer overlap before trusting aggregate dips."
+          "text": "Mean daily score varies with volume; check reviewer overlap on aggregate dips."
         }
       ],
       "log": [
@@ -160,7 +160,7 @@
           "id": "no_factory",
           "priority": 0,
           "default": true,
-          "text": "No wallet minted 50+ agents in this slice."
+          "text": "No wallet minted 50+ agents in this registry."
         }
       ],
       "ens_verified": [
@@ -228,7 +228,7 @@
               {"field": "low_bucket_count", "op": "gte", "value": 50}
             ]
           },
-          "text": "{high_bucket_pct:.0f}% of scores are 80–100; {low_bucket_count:,} events fall below 40."
+          "text": "{high_bucket_pct:.0f}% of scores are 80-100; {low_bucket_count:,} events fall below 40."
         },
         {
           "id": "callout_high_only",
@@ -236,7 +236,7 @@
           "tone": "amber",
           "icon": "warn",
           "when": {"field": "high_bucket_pct", "op": "gte", "value": 50},
-          "text": "{high_bucket_pct:.0f}% of scores sit in the 80–100 bucket."
+          "text": "{high_bucket_pct:.0f}% of scores sit in the 80-100 bucket."
         },
         {
           "id": "callout_low_tail",
@@ -282,7 +282,7 @@
           "id": "teaser_none",
           "priority": 80,
           "when": {"field": "signal_count", "op": "eq", "value": 0},
-          "text": "No factory, burst, collision, or coordinated-review flags in this corpus slice."
+          "text": "No factory, burst, collision, or coordinated-review flags in this registry."
         },
         {
           "id": "teaser_default",
@@ -296,7 +296,7 @@
           "id": "cta_none",
           "priority": 80,
           "when": {"field": "signal_count", "op": "eq", "value": 0},
-          "text": "Open anomaly inbox"
+          "text": "Open Sybil Signals"
         },
         {
           "id": "cta_default",
@@ -383,7 +383,7 @@
         "when": {"field": "collision_count", "op": "gte", "value": 3},
         "tone": "red",
         "icon": "warn",
-        "text": "{ens_name} → {agent_count} agents, {verified_count} verified."
+        "text": "{ens_name} to {agent_count} agents, {verified_count} verified."
       },
       {
         "id": "minor_collision",
@@ -405,7 +405,7 @@
         "id": "cross_chain_none",
         "priority": 0,
         "default": true,
-        "text": "No cross-chain registration refs in this corpus slice."
+        "text": "No cross-chain registration refs in this registry."
       }
     ],
     "cross_chain_subtitle": [
@@ -444,7 +444,7 @@
         "id": "id_page_collisions",
         "priority": 70,
         "when": {"field": "collision_cluster_count", "op": "gte", "value": 1},
-        "text": "ENS links and cross-chain refs on {network_label}. {collision_cluster_count} name collision cluster(s) in this slice."
+        "text": "ENS links and cross-chain refs on {network_label}. {collision_cluster_count} name collision cluster(s) indexed."
       },
       {
         "id": "id_page_default",
@@ -920,7 +920,7 @@
         "id": "rev_page_powerlaw",
         "priority": 70,
         "when": {"field": "top_reviews", "op": "gte", "value": 500},
-        "text": "Client wallets on {network_label}. Top reviewer issued {top_reviews:,} events; edge colour is score given."
+        "text": "Client wallets on {network_label}. Top reviewer issued {top_reviews:,} events; edge color is score given."
       },
       {
         "id": "rev_page_default",
@@ -950,13 +950,13 @@
         "id": "sybil_page_busy",
         "priority": 70,
         "when": {"field": "signal_count", "op": "gte", "value": 10},
-        "text": "{signal_count} automated flags on {network_label}, sorted by severity. Review manually; nothing is auto-penalized."
+        "text": "{signal_count} automated flags on {network_label}, sorted by severity."
       },
       {
         "id": "sybil_page_default",
         "priority": 0,
         "default": true,
-        "text": "Automated flags on {network_label}, sorted by severity. Review manually; nothing is auto-penalized."
+        "text": "Automated flags on {network_label}, sorted by severity."
       }
     ],
     "severity_notes": {
@@ -971,6 +971,14 @@
         {"id": "sev_low_default", "priority": 0, "default": true, "text": "Informational"}
       ]
     },
+    "why_default": [
+      {
+        "id": "why_fallback",
+        "priority": 0,
+        "default": true,
+        "text": "Flagged for manual review; scores are unchanged."
+      }
+    ],
     "why_matters": {
       "factory": [
         {
@@ -1061,7 +1069,7 @@
           "id": "why_ghost_large",
           "priority": 80,
           "when": {"field": "agent_count", "op": "gte", "value": 500},
-          "text": "{agent_count:,} agents from one owner with zero feedback: registry padding without reputation activity."
+          "text": "{agent_count:,} agents from one owner with zero feedback."
         },
         {
           "id": "why_ghost_default",
@@ -1075,7 +1083,7 @@
           "id": "why_integrity_high",
           "priority": 80,
           "when": {"field": "score", "op": "gt", "value": 100},
-          "text": "Score {score} exceeds the 0–100 scale; excluded from aggregates pending ingest review."
+          "text": "Score {score} exceeds the 0-100 scale; excluded from aggregates."
         },
         {
           "id": "why_integrity_default",
@@ -1101,7 +1109,7 @@
           {"id": "fos_title_default", "priority": 0, "default": true, "text": "Factory wallet #{rank} minted {agent_count:,} agents"}
         ],
         "desc": [
-          {"id": "fos_desc_default", "priority": 0, "default": true, "text": "Owner #{rank} controls {agent_count:,} agents ({with_feedback} with feedback). Cross-check against mint spikes."}
+          {"id": "fos_desc_default", "priority": 0, "default": true, "text": "Owner #{rank} controls {agent_count:,} agents ({with_feedback} with feedback). Compare with mint spikes."}
         ]
       },
       "coordinated_downvote": {
@@ -1197,9 +1205,9 @@
           {"id": "di_title_default", "priority": 0, "default": true, "text": "Out-of-range score on agent {agent_id}"}
         ],
         "desc": [
-          {"id": "di_desc_high", "priority": 80, "when": {"field": "score", "op": "gt", "value": 100}, "text": "Feedback score {score} exceeds the 0–100 scale."},
-          {"id": "di_desc_low", "priority": 70, "when": {"field": "score", "op": "lt", "value": 0}, "text": "Feedback score {score} is below the 0–100 scale."},
-          {"id": "di_desc_default", "priority": 0, "default": true, "text": "A feedback record carries score {score} on a 0–100 scale. Surfaced as an ingest sanity flag."}
+          {"id": "di_desc_high", "priority": 80, "when": {"field": "score", "op": "gt", "value": 100}, "text": "Feedback score {score} exceeds the 0-100 scale."},
+          {"id": "di_desc_low", "priority": 70, "when": {"field": "score", "op": "lt", "value": 0}, "text": "Feedback score {score} is below the 0-100 scale."},
+          {"id": "di_desc_default", "priority": 0, "default": true, "text": "Feedback score {score} is outside the 0-100 scale."}
         ]
       }
     }
@@ -1239,7 +1247,7 @@
         "when": {"field": "days_since_indexed", "op": "gte", "value": 7},
         "tone": "amber",
         "icon": "warn",
-        "text": "Index last updated {days_since_indexed} days ago (through {indexed_through}). Rebuild with agentindex-build after sync to refresh."
+        "text": "Index last updated {days_since_indexed} days ago (through {indexed_through})."
       },
       {
         "id": "corpus_recent",
@@ -1247,7 +1255,7 @@
         "when": {"field": "days_since_indexed", "op": "lte", "value": 2},
         "tone": "green",
         "icon": "info",
-        "text": "Index updated through {indexed_through}. Dashboard reflects the latest batch run."
+        "text": "Index updated through {indexed_through} after the latest ingest run."
       },
       {
         "id": "corpus_fresh",
@@ -1255,7 +1263,7 @@
         "default": true,
         "tone": "blue",
         "icon": "info",
-        "text": "Batch index updated after ingest runs. Rebuild with agentindex-build after sync to refresh this dashboard."
+        "text": "Batch index updates after each ingest run."
       }
     ],
     "bytes_billed_note": [

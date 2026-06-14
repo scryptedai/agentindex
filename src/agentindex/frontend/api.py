@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from agentindex.config.settings import IndexSettings
@@ -103,6 +104,18 @@ def create_app() -> FastAPI:
             }
         finally:
             conn.close()
+
+    @app.get("/api/download/db")
+    def download_db() -> FileResponse:
+        settings = IndexSettings.load()
+        db_path = settings.db_path
+        if not db_path.is_file():
+            raise HTTPException(status_code=404, detail="SQLite corpus not found")
+        return FileResponse(
+            path=str(db_path),
+            filename=db_path.name,
+            media_type="application/x-sqlite3",
+        )
 
     @app.get("/api/search")
     def search(q: str = Query("", min_length=0)) -> list[dict[str, Any]]:

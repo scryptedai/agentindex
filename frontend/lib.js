@@ -131,6 +131,7 @@
     silentPct,
     lorenz,
     decodeName,
+    chartMarks: (P.overview && P.overview.chart_marks) || {},
     explorerIndex: P.explorerIndex || [],
   };
 })();

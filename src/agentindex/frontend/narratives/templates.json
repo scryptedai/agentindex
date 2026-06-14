@@ -72,8 +72,8 @@
   },
   "sybil": {
     "page": {
-      "title": "Anomaly inbox",
-      "description": "Automated flags on {network_label}, sorted by severity. Review manually; nothing is auto-penalized."
+      "title": "Sybil Signals",
+      "description": "Automated flags on {network_label}, sorted by severity."
     },
     "signal_types": {
       "factory_owner": {"cls": "Factory owner", "icon": "factory", "rule": "owner.agent_count ≥ 50", "detail": "factory"},

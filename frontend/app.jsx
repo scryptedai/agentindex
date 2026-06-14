@@ -1,14 +1,6 @@
 /* ============================================================
-   AgentIndex: app shell, nav, routing, tweaks
+   AgentIndex: app shell, nav, routing
    ============================================================ */
-const ACCENTS={
-  Blue:{blue:'#1A73E8',hover:'#1B66C9',press:'#185ABC',wash:'#E8F0FE',wash2:'#D2E3FC'},
-  Teal:{blue:'#00897B',hover:'#00796B',press:'#00695C',wash:'#E0F2F1',wash2:'#B2DFDB'},
-  Indigo:{blue:'#3F51B5',hover:'#3949AB',press:'#303F9F',wash:'#E8EAF6',wash2:'#C5CAE9'},
-  Violet:{blue:'#6E5BD0',hover:'#5E4CC0',press:'#4F3FB0',wash:'#EDEAFB',wash2:'#D9D2F5'},
-};
-const DENSITY={compact:{pad:'18px 24px',fs:'13px'},regular:{pad:'28px 36px',fs:'14px'},comfy:{pad:'36px 56px',fs:'14.5px'}};
-
 const NAV=[
   {group:'Analyze',items:[
     {r:'overview',label:'Overview',icon:'overview'},
@@ -23,8 +15,6 @@ const NAV=[
     {r:'corpus',label:'Corpus',icon:'corpus'}]},
 ];
 
-const TWEAK_DEFAULTS = { overviewHero:"pulse", accent:"Violet", density:"regular" };
-
 function BrandMark(){
   return (<svg className="brand-mark" viewBox="0 0 32 32" fill="none">
     <rect width="32" height="32" rx="8" fill="var(--blue)"/>
@@ -35,29 +25,18 @@ function BrandMark(){
 }
 
 function App(){
-  const t = TWEAK_DEFAULTS;
   const [route,setRoute]=useState('overview');
   const [params,setParams]=useState(null);
   const [topQ,setTopQ]=useState('');
   const mainRef=useRef(null);
 
-  // global navigation (used by deep links inside screens / graphs)
   useEffect(()=>{ window.AXNAV=(r,p)=>{ setRoute(r); setParams(p||null);
     if(mainRef.current) mainRef.current.scrollTop=0; }; },[]);
-
-  // apply accent + density as CSS vars
-  useEffect(()=>{
-    const a=ACCENTS[t.accent]||ACCENTS.Blue; const root=document.documentElement.style;
-    root.setProperty('--blue',a.blue); root.setProperty('--blue-hover',a.hover);
-    root.setProperty('--blue-press',a.press); root.setProperty('--surface-blue',a.wash);
-    root.setProperty('--surface-blue-2',a.wash2); root.setProperty('--on-blue',a.blue);
-  },[t.accent]);
-  const dens=DENSITY[t.density]||DENSITY.regular;
 
   function submitSearch(e){ if(e.key==='Enter'){ window.AXNAV('explorer',{query:topQ}); } }
 
   const SCREENS={
-    overview:<ScreenOverview tweaks={t}/>,
+    overview:<ScreenOverview/>,
     sybil:<ScreenSybil/>,
     dossier:<ScreenDossier initial={params}/>,
     reviewer:<ScreenReviewer initial={params}/>,
@@ -91,7 +70,7 @@ function App(){
           {g.items.map(it=><div key={it.r} className={'nav-item'+(route===it.r?' active':'')}
             onClick={()=>window.AXNAV(it.r)}>
             <Icon name={it.icon} size={20}/>{it.label}
-            {it.badge&&<span className="ni-badge">{it.badge}</span>}
+            {it.badge!=null&&it.badge>0&&<span className="ni-badge">{it.badge}</span>}
           </div>)}
         </div>)}
         <div className="nav-divider"></div>
@@ -103,8 +82,8 @@ function App(){
         </div>
       </nav>
 
-      <div className="main" ref={mainRef} style={{fontSize:dens.fs}}>
-        <div className="main-inner" style={{padding:dens.pad,paddingBottom:80}}>
+      <div className="main" ref={mainRef}>
+        <div className="main-inner" style={{padding:'28px 36px',paddingBottom:80}}>
           {SCREENS[route]}
         </div>
       </div>

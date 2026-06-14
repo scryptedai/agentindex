@@ -1,5 +1,5 @@
 /* ============================================================
-   AgentIndex: Sybil Signals (HERO): anomaly inbox
+   AgentIndex: Sybil Signals
    ============================================================ */
 const SEV_LABEL={high:'High',med:'Medium',low:'Low'};
 function useWatchlist(){
@@ -51,7 +51,7 @@ function SignalRow({sig, open, onToggle, watched, onWatch}){
         </div>
         <div>
           <div className="faint" style={{fontSize:11.5,fontWeight:500,letterSpacing:.3,textTransform:'uppercase',marginBottom:8}}>Why it matters</div>
-          <div className="muted" style={{fontSize:13,lineHeight:1.6}}>{sig.why || 'Surfaced as evidence for analyst review, never auto-penalised.'}</div>
+          <div className="muted" style={{fontSize:13,lineHeight:1.6}}>{sig.why || 'Flagged for manual review; scores are unchanged.'}</div>
           {deep&&<div className="mt16"><Btn variant="out" icon="arrowr" onClick={deep[2]}>{deep[0]}</Btn></div>}
         </div>
       </div>
@@ -79,7 +79,7 @@ function ScreenSybil(){
     <div className="page-head">
       <PageNetwork/>
       <div className="page-eyebrow">Sybil Signals</div>
-      <h1 className="page-title">{AX.sybilNarr?.page?.title || 'Anomaly inbox'}</h1>
+      <h1 className="page-title">{AX.sybilNarr?.page?.title || 'Sybil Signals'}</h1>
       <p className="page-desc">{AX.sybilNarr?.page?.description || ''}</p>
     </div>
 
@@ -107,7 +107,7 @@ function ScreenSybil(){
     </div>
 
     <div className="col gap12">
-      {shown.length===0 && <Card className="card-pad" ><div className="muted" style={{textAlign:'center',padding:20}}>No signals match this filter.</div></Card>}
+      {shown.length===0 && <Card className="card-pad"><div className="muted" style={{textAlign:'center',padding:20}}>No signals match the current filter.</div></Card>}
       {shown.map(s=><SignalRow key={s.id} sig={s} open={!!open[s.id]}
         onToggle={()=>setOpen(o=>({...o,[s.id]:!o[s.id]}))}
         watched={watch.includes(s.id)} onWatch={toggleWatch}/>)}

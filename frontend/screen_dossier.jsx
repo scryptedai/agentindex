@@ -27,8 +27,8 @@ function AgentPicker({value,onPick}){
 }
 
 function ScreenDossier({initial}){
-  const defaultId = (initial && initial.agent) || 22721;
-  const [id,setId]=useState(()=> AX.agentById[defaultId] ? defaultId : (AX.agents[0] && AX.agents[0].id));
+  const defaultId = (initial && initial.agent) || (AX.agents[0] && AX.agents[0].id);
+  const [id,setId]=useState(()=> (defaultId && AX.agentById[defaultId]) ? defaultId : (AX.agents[0] && AX.agents[0].id));
   useEffect(()=>{ if(initial&&initial.agent&&AX.agentById[initial.agent]) setId(initial.agent); },[initial]);
   const a = AX.agentById[id];
   const empty = (a && a.empty) || {};

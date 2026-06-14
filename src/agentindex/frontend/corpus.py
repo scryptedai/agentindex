@@ -313,6 +313,20 @@ def cross_chain_summary(conn: sqlite3.Connection, *, limit: int = 12) -> list[di
     ]
 
 
+def cross_chain_by_chain(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+    return [
+        dict(r)
+        for r in conn.execute(
+            """
+            SELECT chain_id, COUNT(*) AS refs
+            FROM agent_registrations
+            GROUP BY chain_id
+            ORDER BY refs DESC
+            """
+        )
+    ]
+
+
 def cross_chain_stats(conn: sqlite3.Connection, home_chain_id: int = 1) -> dict[str, Any]:
     row = conn.execute(
         """
@@ -363,6 +377,7 @@ def load_raw_bundle(
     return {
         "corpus_stats": corpus_stats(conn),
         "cross_chain_stats": cross_chain_stats(conn, home_chain_id),
+        "cross_chain_by_chain": cross_chain_by_chain(conn),
         "ingest_meta": ingest_meta or {},
         "daily_registrations": daily_registrations(conn),
         "daily_feedback": daily_feedback(conn),
