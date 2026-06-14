@@ -57,3 +57,7 @@ Thumbs.db
 
 # Ingested chain data (local corpus)
 data/
+
+# Node (dev screenshot tooling)
+node_modules/
+package-lock.json

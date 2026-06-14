@@ -1,6 +1,75 @@
-# AgentIndex
+<p align="center">
+  <img src="docs/screenshots/overview.png" alt="AgentIndex overview dashboard" width="920"/>
+</p>
 
-Indexer that turns on-chain ERC-8004 agent data into a fast, local SQLite corpus.
+<h1 align="center">AgentIndex</h1>
+
+<p align="center">
+  <strong>Reputation intelligence over ERC-8004 agent registries</strong><br/>
+  BigQuery ingest → local SQLite → interactive dashboard with sybil detection, identity graphs, and reviewer analytics.
+</p>
+
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#dashboard">Dashboard</a> ·
+  <a href="#ingest-to-disk-bigquery--data">Ingest</a> ·
+  <a href="#build-sqlite-index-data--agentindexdb">Build</a>
+</p>
+
+---
+
+## Dashboard
+
+Run `poetry run frontend` after building the SQLite index. The UI reads live corpus statistics and fills copy, KPI notes, and sybil signal descriptions through a declarative reaction engine ([`reactions.json`](src/agentindex/frontend/narratives/reactions.json)).
+
+| | |
+|:---:|:---:|
+| **Overview** - registry pulse, silent majority, factory concentration | **Sybil Signals** - 26 automated flags sorted by severity |
+| <img src="docs/screenshots/overview.png" alt="Overview" width="440"/> | <img src="docs/screenshots/sybil-signals.png" alt="Sybil Signals" width="440"/> |
+| **Agent dossier** - per-agent reputation timeline and launch-burst detection | **Reviewer lens** - client behavior and review independence |
+| <img src="docs/screenshots/agent-dossier.png" alt="Agent dossier" width="440"/> | <img src="docs/screenshots/reviewer-lens.png" alt="Reviewer lens" width="440"/> |
+| **Identity graph** - ENS collisions and cross-chain registration refs | **Explorer & corpus** - lookup, SQL examples, SQLite export |
+| <img src="docs/screenshots/identity-graph.png" alt="Identity graph" width="440"/> | <img src="docs/screenshots/explorer.png" alt="Explorer" width="440"/> |
+
+<p align="center">
+  <img src="docs/screenshots/corpus.png" alt="Corpus provenance and export" width="920"/>
+  <br/>
+  <em>Corpus page: row counts, ingest pipeline, config snapshot, and SQLite download.</em>
+</p>
+
+### API routes
+
+| Route | Purpose |
+|-------|---------|
+| `/` | Overview, Sybil Signals, Agent dossier, Reviewer lens, Identity graph, Explorer |
+| `/api/bootstrap` | Full corpus + derived metrics + narrative copy (JSON) |
+| `/api/agents/{id}` | Single-agent dossier on demand |
+| `POST /api/reload` | Refresh cache after rebuild |
+| `/api/download/db` | Download the SQLite index file |
+
+Optional env: `FRONTEND_HOST`, `FRONTEND_PORT` (default `8787`), `FRONTEND_RELOAD=1` for dev.
+
+---
+
+## Quick start
+
+```bash
+cp .env.example .env          # set GOOGLE_APPLICATION_CREDENTIALS for ingest
+poetry install
+
+poetry run agentindex-backfill  # one-time BigQuery backfill (or skip if data/ exists)
+poetry run agentindex-build     # data/ → data/agentindex.db
+poetry run frontend             # http://127.0.0.1:8787
+```
+
+Regenerate README screenshots after UI changes:
+
+```bash
+poetry run frontend   # in one terminal
+cd dev && npm install && npm run screenshots
+```
+
+---
 
 ## Configuration
 
@@ -20,10 +89,6 @@ Credentials and runtime overrides stay in `.env`:
 | `GOOGLE_APPLICATION_CREDENTIALS` | Service account JSON path (required for ingest) |
 | `BQ_MAX_BYTES_BILLED` | Cap for **sync** and ENS discovery (default 3 GB) |
 | `AGENTINDEX_CONFIG` | Optional path to config JSON (default `config/default.json`) |
-
-```bash
-cp .env.example .env   # set GOOGLE_APPLICATION_CREDENTIALS
-```
 
 Poetry is configured to create the virtualenv at `.venv/` in the project root (`poetry.toml`).
 
@@ -118,27 +183,6 @@ FROM agents WHERE first_seen_block > 24500000;
 ```
 
 Re-run `agentindex-build` after `agentindex-sync` to pick up new JSONL chunks.
-
-## Web dashboard (`poetry run frontend`)
-
-Dashboard over the local SQLite corpus. Copy and sybil signals are computed server-side from [`src/agentindex/frontend/narratives/`](src/agentindex/frontend/narratives/).
-
-```bash
-poetry run agentindex-build   # if needed
-poetry run frontend           # http://127.0.0.1:8787
-```
-
-| Route | Purpose |
-|-------|---------|
-| `/` | Overview, Sybil Signals, Agent dossier, Reviewer lens, Identity graph, Explorer |
-| `/api/bootstrap` | Full corpus + derived metrics + narrative copy (JSON) |
-| `/api/agents/{id}` | Single-agent dossier on demand |
-| `POST /api/reload` | Refresh cache after rebuild |
-| `/api/download/db` | Download the SQLite index file |
-
-Static UI lives in [`frontend/`](frontend/). Narrative rules in `reactions.json` fill titles, KPI notes, callouts, and sybil signal descriptions from corpus statistics.
-
-Optional env: `FRONTEND_HOST`, `FRONTEND_PORT` (default `8787`), `FRONTEND_RELOAD=1` for dev.
 
 ## ENS enrichment (`data/ethereum/ens/`)
 

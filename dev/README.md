@@ -10,8 +10,20 @@ actually connect?"** checks you run locally with credentials.
 
 ```
 dev/
-  smoketests/     # one script per external dependency; run individually
+  smoketests/              # one script per external dependency; run individually
+  capture_screenshots.mjs  # Playwright screenshots for README (npm run screenshots)
+  package.json             # dev-only deps (playwright)
 ```
+
+### README screenshots
+
+With the frontend running (`poetry run frontend`):
+
+```bash
+cd dev && npm install && npm run screenshots
+```
+
+Writes PNGs to `docs/screenshots/`.
 
 ## Milestones (from BUILD.md, Python port)
 
