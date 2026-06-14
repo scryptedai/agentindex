@@ -1,0 +1,71 @@
+{
+  "data_dir": "data",
+  "index_db": "data/agentindex.db",
+  "default_network": "ethereum",
+  "networks": {
+    "ethereum": {
+      "chain_id": 1,
+      "enabled": true,
+      "launch_date": "2026-02-01",
+      "lag_days": 1,
+      "bigquery": {
+        "logs_table": "bigquery-public-data.goog_blockchain_ethereum_mainnet_us.logs"
+      },
+      "registries": [
+        {
+          "name": "identity",
+          "address": "0x8004a169fb4a3325136eb29fa0ceb6d2e539a432",
+          "topic0": "0xca52e62c367d81bb2e328eb795f7c7ba24afb478408a26c0e201d155c449bc4a",
+          "event_name": "Registered"
+        },
+        {
+          "name": "reputation",
+          "address": "0x8004baa17c55a88189ae136b182e5fda19de9b63",
+          "topic0": "0x6a4a61743519c9d648a14e6493f47dbe3ff1aa29e7785c96c8326a205e58febc",
+          "event_name": "NewFeedback"
+        }
+      ],
+      "ens": {
+        "enabled": true,
+        "bq_dataset": "web3-publicgoods.ens",
+        "resolvers_table": "resolvers",
+        "resolutions_table": "resolutions",
+        "identity_registry_erc7930": "0x000100000101148004a169fb4a3325136eb29fa0ceb6d2e539a432"
+      },
+      "registration_fetch": {
+        "timeout_seconds": 30,
+        "workers": 8
+      }
+    },
+    "base": {
+      "chain_id": 8453,
+      "enabled": false,
+      "launch_date": "2026-02-01",
+      "lag_days": 1,
+      "bigquery": {
+        "logs_table": null
+      },
+      "registries": [
+        {
+          "name": "identity",
+          "address": "0x8004a169fb4a3325136eb29fa0ceb6d2e539a432",
+          "topic0": "0xca52e62c367d81bb2e328eb795f7c7ba24afb478408a26c0e201d155c449bc4a",
+          "event_name": "Registered"
+        },
+        {
+          "name": "reputation",
+          "address": "0x8004baa17c55a88189ae136b182e5fda19de9b63",
+          "topic0": "0x6a4a61743519c9d648a14e6493f47dbe3ff1aa29e7785c96c8326a205e58febc",
+          "event_name": "NewFeedback"
+        }
+      ],
+      "ens": {
+        "enabled": false
+      },
+      "registration_fetch": {
+        "timeout_seconds": 30,
+        "workers": 8
+      }
+    }
+  }
+}

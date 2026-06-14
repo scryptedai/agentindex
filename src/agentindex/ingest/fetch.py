@@ -35,17 +35,19 @@ def iter_days(start: date, end: date):
 def _fetch_window(
     runner: BigQueryRunner,
     registry: Registry,
+    logs_table: str,
     window_start: str,
     window_end: str,
     label: str,
 ) -> tuple[list[dict[str, Any]], int]:
-    query = events_query(registry, window_start, window_end)
+    query = events_query(registry, logs_table, window_start, window_end)
     return runner.query_rows(query, label)
 
 
 def _fetch_day_hourly(
     runner: BigQueryRunner,
     registry: Registry,
+    logs_table: str,
     day: date,
 ) -> tuple[list[dict[str, Any]], int]:
     rows: list[dict[str, Any]] = []
@@ -53,7 +55,9 @@ def _fetch_day_hourly(
     for hour in range(24):
         start, end = hour_bounds(day, hour)
         label = f"{registry.name}/{day.isoformat()}T{hour:02d}"
-        chunk_rows, billed = _fetch_window(runner, registry, start, end, label)
+        chunk_rows, billed = _fetch_window(
+            runner, registry, logs_table, start, end, label
+        )
         rows.extend(chunk_rows)
         total_billed += billed
     rows.sort(key=lambda r: (r["block_number"], r["log_index"]))
@@ -65,6 +69,7 @@ def fetch_day(
     layout: DataLayout,
     meta: Meta,
     registry: Registry,
+    logs_table: str,
     day: date,
     *,
     skip_existing: bool = True,
@@ -84,7 +89,7 @@ def fetch_day(
 
     start, end = day_bounds(day)
     label = f"{registry.name}/{day.isoformat()}"
-    query = events_query(registry, start, end)
+    query = events_query(registry, logs_table, start, end)
     estimated = runner.dry_run_bytes(query)
 
     if runner.max_bytes_billed is not None and estimated <= runner.max_bytes_billed:
@@ -94,7 +99,7 @@ def fetch_day(
             f"  {label}: daily dry-run {estimated:,} bytes > cap; "
             f"splitting into hourly chunks"
         )
-        rows, billed = _fetch_day_hourly(runner, registry, day)
+        rows, billed = _fetch_day_hourly(runner, registry, logs_table, day)
 
     write_rows(chunk_path, rows)
     meta.mark_chunk(registry.name, registry.address, day, rows, billed)
@@ -105,7 +110,8 @@ def run_chunked_ingest(
     runner: BigQueryRunner,
     layout: DataLayout,
     meta: Meta,
-    registries: tuple[Registry, ...],
+    registries: tuple,
+    logs_table: str,
     start: date,
     end: date,
     *,
@@ -119,7 +125,13 @@ def run_chunked_ingest(
     for day in iter_days(start, end):
         for registry in registries:
             rows, billed = fetch_day(
-                runner, layout, meta, registry, day, skip_existing=skip_existing
+                runner,
+                layout,
+                meta,
+                registry,
+                logs_table,
+                day,
+                skip_existing=skip_existing,
             )
             total_rows += rows
             total_bytes += billed

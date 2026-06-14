@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 
 from agentindex.bq.client import BigQueryRunner
-from agentindex.config import Settings
-from agentindex.erc8004 import REGISTRIES
+from agentindex.config.models import NetworkConfig
+from agentindex.config.settings import Settings
 from agentindex.ingest.fetch import run_chunked_ingest
 from agentindex.storage.meta import Meta
 from agentindex.storage.paths import DataLayout
@@ -37,20 +37,19 @@ def _first_unsynced_day(meta: Meta, launch: date) -> date:
     return max(date.fromisoformat(d) for d in completed) + timedelta(days=1)
 
 
-def sync_ethereum(settings: Settings | None = None) -> None:
-    settings = settings or Settings.load()
-    layout = DataLayout(settings.data_dir)
+def sync_network(settings: Settings, network: NetworkConfig) -> None:
+    layout = DataLayout(settings.data_dir, network=network.key)
     layout.ensure()
 
-    meta = Meta.load(layout.meta_path, "ethereum", settings.launch_date)
-    end = settings.sync_through_date()
-    start = _first_unsynced_day(meta, settings.launch_date)
+    meta = Meta.load(layout.meta_path, network.key, network.launch_date)
+    end = network.sync_through_date()
+    start = _first_unsynced_day(meta, network.launch_date)
 
     if start > end:
-        print(f"Already up to date through {end} (next would start {start})")
+        print(f"{network.key}: already up to date through {end} (next would start {start})")
         return
 
-    print(f"Sync ethereum: {start} .. {end}")
+    print(f"Sync {network.key}: {start} .. {end}")
     print(f"Data dir: {layout.network_dir}")
 
     runner = BigQueryRunner(settings.max_bytes_billed)
@@ -58,7 +57,8 @@ def sync_ethereum(settings: Settings | None = None) -> None:
         runner,
         layout,
         meta,
-        REGISTRIES,
+        network.registries,
+        network.bigquery.logs_table,
         start,
         end,
         skip_existing=True,
@@ -67,6 +67,18 @@ def sync_ethereum(settings: Settings | None = None) -> None:
     meta.save(layout.meta_path)
 
     print(
-        f"Sync complete: {total_rows:,} new events, "
+        f"Sync complete ({network.key}): {total_rows:,} new events, "
         f"{total_bytes:,} bytes billed (~{total_bytes / 1e9:.2f} GB)"
     )
+
+
+def sync_all(settings: Settings | None = None) -> None:
+    settings = settings or Settings.load()
+    for network in settings.config.enabled_networks():
+        sync_network(settings, network)
+        print()
+
+
+def sync_ethereum(settings: Settings | None = None) -> None:
+    settings = settings or Settings.load()
+    sync_network(settings, settings.network())

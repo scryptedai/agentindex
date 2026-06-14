@@ -42,6 +42,10 @@ class DataLayout:
     def ens_claimed_path(self) -> Path:
         return self.ens_dir / "claimed.jsonl"
 
+    @property
+    def ens_cross_registrations_path(self) -> Path:
+        return self.ens_dir / "cross_registrations.jsonl"
+
     def ens_registration_path(self, agent_id: int) -> Path:
         return self.ens_dir / "registrations" / f"{agent_id}.json"
 

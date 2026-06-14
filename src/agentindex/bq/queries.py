@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from agentindex.erc8004 import LOGS_TABLE, Registry
+from agentindex.erc8004 import Registry
 
 
 def range_bounds(start: date, end: date) -> tuple[str, str]:
@@ -32,7 +32,12 @@ def _raw_log_columns() -> str:
   removed"""
 
 
-def identity_events_query(registry: Registry, start: str, end: str) -> str:
+def identity_events_query(
+    registry: Registry,
+    logs_table: str,
+    start: str,
+    end: str,
+) -> str:
     return f"""
 SELECT
   '{registry.event_name}' AS event_name,
@@ -45,7 +50,7 @@ SELECT
     131,
     2 * SAFE_CAST(CONCAT('0x', SUBSTR(data, 67, 64)) AS INT64)
   ))) AS agent_uri
-FROM `{LOGS_TABLE}`
+FROM `{logs_table}`
 WHERE address = '{registry.address}'
   AND topics[SAFE_OFFSET(0)] = '{registry.topic0}'
   AND {_time_filter(start, end)}
@@ -53,7 +58,12 @@ ORDER BY block_number, log_index
 """
 
 
-def reputation_events_query(registry: Registry, start: str, end: str) -> str:
+def reputation_events_query(
+    registry: Registry,
+    logs_table: str,
+    start: str,
+    end: str,
+) -> str:
     return f"""
 SELECT
   '{registry.event_name}' AS event_name,
@@ -63,7 +73,7 @@ SELECT
   CONCAT('0x', SUBSTR(topics[SAFE_OFFSET(2)], 27)) AS client,
   SAFE_CAST(CONCAT('0x', SUBSTR(data, 67, 64)) AS INT64) AS raw_value,
   SAFE_CAST(CONCAT('0x', SUBSTR(data, 131, 64)) AS INT64) AS value_decimals
-FROM `{LOGS_TABLE}`
+FROM `{logs_table}`
 WHERE address = '{registry.address}'
   AND topics[SAFE_OFFSET(0)] = '{registry.topic0}'
   AND {_time_filter(start, end)}
@@ -72,9 +82,14 @@ ORDER BY block_number, log_index
 """
 
 
-def events_query(registry: Registry, start: str, end: str) -> str:
+def events_query(
+    registry: Registry,
+    logs_table: str,
+    start: str,
+    end: str,
+) -> str:
     if registry.name == "identity":
-        return identity_events_query(registry, start, end)
+        return identity_events_query(registry, logs_table, start, end)
     if registry.name == "reputation":
-        return reputation_events_query(registry, start, end)
+        return reputation_events_query(registry, logs_table, start, end)
     raise ValueError(f"Unknown registry: {registry.name}")

@@ -2,10 +2,26 @@
 
 Indexer that turns on-chain ERC-8004 agent data into a fast, local SQLite corpus.
 
-## Setup
+## Configuration
+
+Network targets, registry addresses, BigQuery tables, and ENS settings live in
+[`config/default.json`](config/default.json). Copy and edit for your deployment, or
+point at another file with `AGENTINDEX_CONFIG`.
+
+Each network entry can be enabled independently. Ethereum is enabled by default; Base
+is included as a disabled template (no public BigQuery logs dataset yet). Agents that
+register on multiple chains appear in `cross_registrations.jsonl` and the SQLite
+`agent_registrations` table (parsed from registration JSON `registrations[]`).
+
+Credentials and runtime overrides stay in `.env`:
+
+| Variable | Purpose |
+|----------|---------|
+| `GOOGLE_APPLICATION_CREDENTIALS` | Service account JSON path (required for ingest) |
+| `BQ_MAX_BYTES_BILLED` | Cap for **sync** and ENS discovery (default 3 GB) |
+| `AGENTINDEX_CONFIG` | Optional path to config JSON (default `config/default.json`) |
 
 ```bash
-poetry install
 cp .env.example .env   # set GOOGLE_APPLICATION_CREDENTIALS
 ```
 
@@ -51,18 +67,12 @@ poetry run agentindex-sync
 
 | Command | Queries | Byte cap |
 |---------|---------|----------|
-| `agentindex-backfill` | 2 (identity + reputation, full history) | none |
-| `agentindex-sync` | 1 per registry per missing day | `BQ_MAX_BYTES_BILLED` (default 3 GB) |
+| `agentindex-backfill` | 2 per enabled network (identity + reputation) | none |
+| `agentindex-sync` | 1 per registry per missing day per network | `BQ_MAX_BYTES_BILLED` (default 3 GB) |
 
-Configure via `.env`:
-
-| Variable | Purpose |
-|----------|---------|
-| `GOOGLE_APPLICATION_CREDENTIALS` | Service account JSON path |
-| `BQ_MAX_BYTES_BILLED` | Cap for **sync only** (default 3 GB) |
-| `ERC8004_LAUNCH_DATE` | Backfill start (default `2026-02-01`) |
-| `BQ_LAG_DAYS` | Stop before today N days (default `1`) |
-| `DATA_DIR` | Output root (default `data`) |
+Backfill/sync iterate all **enabled** networks in config. Per-network settings
+(`launch_date`, `lag_days`, `bigquery.logs_table`, registries, ENS) are in
+`config/default.json`.
 
 If you ran an older day-chunked backfill, remove `data/ethereum/` before re-running.
 Backfill writes `identity/events.jsonl` and `reputation/events.jsonl`.
@@ -77,7 +87,7 @@ After ingest, rebuild the queryable corpus from JSONL. No BigQuery credentials n
 poetry run agentindex-build
 ```
 
-Writes `data/agentindex.db` (override with `INDEX_DB`). Tables:
+Writes `data/agentindex.db` (path set in config). Tables:
 
 | Table | Contents |
 |-------|----------|
@@ -86,6 +96,7 @@ Writes `data/agentindex.db` (override with `INDEX_DB`). Tables:
 | `reputation_agg` | Mean score per agent (non-revoked feedback) |
 | `registries` | Per-registry watermark `(block_number, log_index)` |
 | `ens_links` | Many-to-many agent ↔ ENS edges (`verified`, `claimed` flags per pair) |
+| `agent_registrations` | Cross-network registry refs from registration JSON |
 
 Example queries:
 
@@ -118,6 +129,7 @@ data/ethereum/ens/
   meta.json
   verified.jsonl              # BigQuery: agent-registration[registry][agentId] text records
   claimed.jsonl               # one row per (agent_id, claimed_ens) edge
+  cross_registrations.jsonl   # registrations[] from registration JSON (other chains)
   registrations/{agent_id}.json
 ```
 

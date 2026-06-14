@@ -127,6 +127,56 @@ def pick_claimed_ens(registration: dict[str, Any]) -> str | None:
     return names[0] if names else None
 
 
+def parse_registry_ref(agent_registry: str) -> tuple[int, str] | None:
+    """Parse ERC-8004 ``agentRegistry`` refs such as ``eip155:1:0x...``."""
+    value = agent_registry.strip()
+    if not value.startswith("eip155:"):
+        return None
+    parts = value.split(":")
+    if len(parts) < 3:
+        return None
+    try:
+        chain_id = int(parts[1])
+    except ValueError:
+        return None
+    address = parts[-1].lower()
+    if not address.startswith("0x"):
+        return None
+    return chain_id, address
+
+
+def extract_cross_network_registrations(
+    registration: dict[str, Any],
+) -> list[dict[str, int | str]]:
+    """Other chain/registry memberships declared in registration JSON."""
+    rows: list[dict[str, int | str]] = []
+    for item in registration.get("registrations") or []:
+        if not isinstance(item, dict):
+            continue
+        ref = item.get("agentRegistry") or item.get("agent_registry")
+        agent_id_raw = item.get("agentId")
+        if agent_id_raw is None:
+            agent_id_raw = item.get("agent_id")
+        if ref is None or agent_id_raw is None:
+            continue
+        parsed = parse_registry_ref(str(ref))
+        if parsed is None:
+            continue
+        try:
+            agent_id = int(agent_id_raw)
+        except (TypeError, ValueError):
+            continue
+        chain_id, registry_address = parsed
+        rows.append(
+            {
+                "chain_id": chain_id,
+                "registry_address": registry_address,
+                "agent_id": agent_id,
+            }
+        )
+    return rows
+
+
 def latest_agents_with_uri(layout: DataLayout) -> dict[int, str]:
     """Most recent token_uri per agent_id from identity JSONL."""
     agents: dict[int, tuple[int, int, str]] = {}
@@ -143,18 +193,20 @@ def latest_agents_with_uri(layout: DataLayout) -> dict[int, str]:
     return {agent_id: uri for agent_id, (_, _, uri) in agents.items()}
 
 
-def refresh_claimed_jsonl(
+def refresh_registration_jsonl(
     layout: DataLayout,
     meta: EnsMeta | None = None,
-) -> list[dict[str, Any]]:
-    """Rebuild claimed.jsonl from cached registration JSON (one row per agent/name edge)."""
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Rebuild claimed + cross-network JSONL from cached registration files."""
     reg_dir = layout.ens_dir / "registrations"
     if not reg_dir.is_dir():
-        return []
+        return [], []
 
-    records: list[dict[str, Any]] = []
+    claimed_records: list[dict[str, Any]] = []
+    cross_records: list[dict[str, Any]] = []
+
     for path in sorted(reg_dir.glob("*.json")):
-        agent_id = int(path.stem)
+        home_agent_id = int(path.stem)
         try:
             registration = json.loads(path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
@@ -163,15 +215,15 @@ def refresh_claimed_jsonl(
         token_uri = ""
         fetched_at = _now_iso()
         if meta is not None:
-            state = meta.registration_uris.get(str(agent_id))
+            state = meta.registration_uris.get(str(home_agent_id))
             if state:
                 token_uri = state.token_uri
                 fetched_at = state.fetched_at
 
         for ens_name in extract_claimed_ens_names(registration):
-            records.append(
+            claimed_records.append(
                 {
-                    "agent_id": agent_id,
+                    "agent_id": home_agent_id,
                     "claimed_ens": ens_name,
                     "token_uri": token_uri,
                     "source": "registration",
@@ -180,9 +232,38 @@ def refresh_claimed_jsonl(
                 }
             )
 
-    records.sort(key=lambda row: (row["agent_id"], row["claimed_ens"]))
-    write_rows_replace(layout.ens_claimed_path, records)
-    return records
+        for ref in extract_cross_network_registrations(registration):
+            cross_records.append(
+                {
+                    "home_agent_id": home_agent_id,
+                    "chain_id": ref["chain_id"],
+                    "registry_address": ref["registry_address"],
+                    "agent_id": ref["agent_id"],
+                    "source": "registration",
+                    "fetched_at": fetched_at,
+                }
+            )
+
+    claimed_records.sort(key=lambda row: (row["agent_id"], row["claimed_ens"]))
+    cross_records.sort(
+        key=lambda row: (
+            row["home_agent_id"],
+            row["chain_id"],
+            row["registry_address"],
+            row["agent_id"],
+        )
+    )
+    write_rows_replace(layout.ens_claimed_path, claimed_records)
+    write_rows_replace(layout.ens_cross_registrations_path, cross_records)
+    return claimed_records, cross_records
+
+
+def refresh_claimed_jsonl(
+    layout: DataLayout,
+    meta: EnsMeta | None = None,
+) -> list[dict[str, Any]]:
+    claimed, _cross = refresh_registration_jsonl(layout, meta)
+    return claimed
 
 
 def _fetch_one(
@@ -278,7 +359,7 @@ def fetch_registrations(
                 else:
                     fetched += 1
 
-    refresh_claimed_jsonl(layout, meta)
+    refresh_registration_jsonl(layout, meta)
 
     meta.registrations_fetched = sum(
         1

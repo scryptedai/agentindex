@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 _DDL = """
 CREATE TABLE IF NOT EXISTS schema_meta (
@@ -91,6 +91,27 @@ CREATE INDEX IF NOT EXISTS idx_ens_links_agent
   ON ens_links (network_id, agent_id);
 """
 
+_AGENT_REGISTRATIONS_DDL = """
+CREATE TABLE IF NOT EXISTS agent_registrations (
+  home_network_id INTEGER NOT NULL,
+  home_agent_id INTEGER NOT NULL,
+  chain_id INTEGER NOT NULL,
+  registry_address TEXT NOT NULL,
+  agent_id INTEGER NOT NULL,
+  source TEXT NOT NULL DEFAULT 'registration_json',
+  fetched_at TEXT,
+  PRIMARY KEY (
+    home_network_id, home_agent_id, chain_id, registry_address, agent_id
+  )
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_registrations_target
+  ON agent_registrations (chain_id, registry_address, agent_id);
+
+CREATE INDEX IF NOT EXISTS idx_agent_registrations_home
+  ON agent_registrations (home_network_id, home_agent_id);
+"""
+
 
 def migrate(conn: sqlite3.Connection) -> None:
     conn.executescript(_DDL)
@@ -107,5 +128,10 @@ def migrate(conn: sqlite3.Connection) -> None:
         conn.execute("DROP TABLE IF EXISTS ens_links")
         conn.executescript(_ENS_DDL_V3)
         conn.execute("UPDATE schema_meta SET version = 3")
+        version = 3
+
+    if version < 4:
+        conn.executescript(_AGENT_REGISTRATIONS_DDL)
+        conn.execute("UPDATE schema_meta SET version = 4")
 
     conn.commit()

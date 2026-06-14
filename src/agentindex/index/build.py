@@ -7,17 +7,17 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
+from agentindex.config.models import NetworkConfig
+from agentindex.config.settings import IndexSettings
 from agentindex.db.connection import open_db
-from agentindex.erc8004 import IDENTITY, REPUTATION, Registry
-from agentindex.ens.registrations import refresh_claimed_jsonl
+from agentindex.erc8004 import Registry
+from agentindex.ens.registrations import refresh_registration_jsonl
 from agentindex.index.ens_sources import read_jsonl
 from agentindex.index.reputation import normalize_score
 from agentindex.index.sources import iter_registry_events
 from agentindex.storage.ens_meta import EnsMeta
 from agentindex.storage.paths import DataLayout
 
-
-ETHEREUM_MAINNET = 1
 LinkKey = tuple[int, str]
 
 
@@ -30,6 +30,7 @@ class BuildStats:
     ens_verified_links: int
     ens_agents: int
     ens_names: int
+    cross_registrations: int
     identity_events: int
     reputation_events: int
 
@@ -203,7 +204,7 @@ def _index_ens(
     layout: DataLayout,
 ) -> tuple[int, int, int, int]:
     meta = EnsMeta.load(layout.ens_meta_path)
-    refresh_claimed_jsonl(layout, meta)
+    refresh_registration_jsonl(layout, meta)
 
     verified_rows = read_jsonl(layout.ens_verified_path)
     claimed_rows = read_jsonl(layout.ens_claimed_path)
@@ -284,55 +285,153 @@ def _index_ens(
     return len(merged), verified_links, len(agents), len(names)
 
 
-def build_index(
-    db_path,
+def _index_cross_registrations(
+    conn: sqlite3.Connection,
+    network_id: int,
     layout: DataLayout,
-    *,
-    network_id: int = ETHEREUM_MAINNET,
-) -> BuildStats:
-    """Rebuild the SQLite corpus from JSONL under ``layout``."""
+) -> int:
+    rows = read_jsonl(layout.ens_cross_registrations_path)
+    for row in rows:
+        conn.execute(
+            """
+            INSERT INTO agent_registrations (
+              home_network_id, home_agent_id,
+              chain_id, registry_address, agent_id,
+              source, fetched_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                network_id,
+                int(row["home_agent_id"]),
+                int(row["chain_id"]),
+                str(row["registry_address"]).lower(),
+                int(row["agent_id"]),
+                str(row.get("source") or "registration"),
+                row.get("fetched_at"),
+            ),
+        )
+    return len(rows)
+
+
+def _build_network(
+    conn: sqlite3.Connection,
+    layout: DataLayout,
+    network: NetworkConfig,
+) -> tuple[int, int, int, int, int, int, int, int, int]:
+    network_id = network.chain_id
     identity_events = list(iter_registry_events(layout.registry_dir("identity")))
     reputation_events = list(iter_registry_events(layout.registry_dir("reputation")))
 
-    conn = open_db(db_path)
-    try:
-        conn.execute("BEGIN")
-        conn.execute("DELETE FROM agents WHERE network_id = ?", (network_id,))
-        conn.execute(
-            "DELETE FROM reputation_feedback WHERE network_id = ?",
-            (network_id,),
-        )
-        conn.execute(
-            "DELETE FROM reputation_agg WHERE network_id = ?",
-            (network_id,),
-        )
-        conn.execute("DELETE FROM ens_links WHERE network_id = ?", (network_id,))
+    conn.execute("DELETE FROM agents WHERE network_id = ?", (network_id,))
+    conn.execute(
+        "DELETE FROM reputation_feedback WHERE network_id = ?",
+        (network_id,),
+    )
+    conn.execute(
+        "DELETE FROM reputation_agg WHERE network_id = ?",
+        (network_id,),
+    )
+    conn.execute("DELETE FROM ens_links WHERE network_id = ?", (network_id,))
+    conn.execute(
+        "DELETE FROM agent_registrations WHERE home_network_id = ?",
+        (network_id,),
+    )
 
-        _index_identity(conn, network_id, identity_events)
-        _index_reputation(conn, network_id, reputation_events)
-        agents_with_feedback = _recompute_reputation_agg(conn, network_id)
+    _index_identity(conn, network_id, identity_events)
+    _index_reputation(conn, network_id, reputation_events)
+    agents_with_feedback = _recompute_reputation_agg(conn, network_id)
+
+    ens_links = ens_verified_links = ens_agents = ens_names = 0
+    cross_registrations = 0
+    if layout.ens_dir.is_dir():
         ens_links, ens_verified_links, ens_agents, ens_names = _index_ens(
             conn, network_id, layout
         )
+        cross_registrations = _index_cross_registrations(conn, network_id, layout)
 
-        indexed_at = datetime.now(timezone.utc).isoformat()
-        id_block, id_log, id_at = _registry_watermark(identity_events)
-        rep_block, rep_log, rep_at = _registry_watermark(reputation_events)
-        _upsert_registry(
-            conn, network_id, IDENTITY, id_block, id_log, id_at or indexed_at
+    indexed_at = datetime.now(timezone.utc).isoformat()
+    for registry in network.registries:
+        events = (
+            identity_events
+            if registry.name == "identity"
+            else reputation_events
         )
+        block, log_index, ts = _registry_watermark(events)
         _upsert_registry(
-            conn, network_id, REPUTATION, rep_block, rep_log, rep_at or indexed_at
+            conn,
+            network_id,
+            registry,
+            block,
+            log_index,
+            ts or indexed_at,
         )
 
-        agent_count = conn.execute(
-            "SELECT COUNT(*) FROM agents WHERE network_id = ?",
-            (network_id,),
-        ).fetchone()[0]
-        feedback_count = conn.execute(
-            "SELECT COUNT(*) FROM reputation_feedback WHERE network_id = ?",
-            (network_id,),
-        ).fetchone()[0]
+    return (
+        len(identity_events),
+        len(reputation_events),
+        agents_with_feedback,
+        ens_links,
+        ens_verified_links,
+        ens_agents,
+        ens_names,
+        cross_registrations,
+        network_id,
+    )
+
+
+def build_index(
+    db_path,
+    settings: IndexSettings | None = None,
+) -> BuildStats:
+    """Rebuild the SQLite corpus from JSONL for all enabled networks."""
+    settings = settings or IndexSettings.load()
+    config = settings.config
+
+    conn = open_db(db_path)
+    agent_count = 0
+    feedback_count = 0
+    agents_with_feedback = 0
+    ens_links = 0
+    ens_verified_links = 0
+    ens_agents = 0
+    ens_names = 0
+    cross_registrations = 0
+    identity_events = 0
+    reputation_events = 0
+
+    try:
+        conn.execute("BEGIN")
+        for network in config.enabled_networks():
+            layout = DataLayout(config.data_dir, network=network.key)
+            (
+                id_events,
+                rep_events,
+                with_feedback,
+                links,
+                verified_links,
+                link_agents,
+                link_names,
+                cross,
+                network_id,
+            ) = _build_network(conn, layout, network)
+
+            identity_events += id_events
+            reputation_events += rep_events
+            agents_with_feedback += with_feedback
+            ens_links += links
+            ens_verified_links += verified_links
+            ens_agents += link_agents
+            ens_names += link_names
+            cross_registrations += cross
+
+            agent_count += conn.execute(
+                "SELECT COUNT(*) FROM agents WHERE network_id = ?",
+                (network_id,),
+            ).fetchone()[0]
+            feedback_count += conn.execute(
+                "SELECT COUNT(*) FROM reputation_feedback WHERE network_id = ?",
+                (network_id,),
+            ).fetchone()[0]
 
         conn.commit()
     except Exception:
@@ -349,6 +448,7 @@ def build_index(
         ens_verified_links=ens_verified_links,
         ens_agents=ens_agents,
         ens_names=ens_names,
-        identity_events=len(identity_events),
-        reputation_events=len(reputation_events),
+        cross_registrations=cross_registrations,
+        identity_events=identity_events,
+        reputation_events=reputation_events,
     )
