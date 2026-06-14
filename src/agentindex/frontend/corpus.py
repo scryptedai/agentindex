@@ -147,6 +147,36 @@ def ens_name_collisions(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     ]
 
 
+def ens_proven_links(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+    """Agent/name pairs with JSON claim and ENSIP-25 resolver text record."""
+    return [
+        dict(r)
+        for r in conn.execute(
+            """
+            SELECT agent_id, ens_name
+            FROM ens_links
+            WHERE verified=1 AND claimed=1
+            ORDER BY ens_name, agent_id
+            """
+        )
+    ]
+
+
+def ens_unproven_claims(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+    """Claimed in registration JSON but no ENSIP-25 back-link on the resolver."""
+    return [
+        dict(r)
+        for r in conn.execute(
+            """
+            SELECT agent_id, ens_name
+            FROM ens_links
+            WHERE claimed=1 AND verified=0
+            ORDER BY ens_name, agent_id
+            """
+        )
+    ]
+
+
 def review_graph_edges(conn: sqlite3.Connection, *, limit: int = 200) -> list[dict[str, Any]]:
     return [
         dict(r)
@@ -385,6 +415,8 @@ def load_raw_bundle(
         "owner_concentration": owner_concentration(conn),
         "reviewer_profiles": reviewer_profiles(conn),
         "ens_name_collisions": ens_name_collisions(conn),
+        "ens_proven_links": ens_proven_links(conn),
+        "ens_unproven_claims": ens_unproven_claims(conn),
         "review_graph_edges": review_graph_edges(conn),
         "spotlight_agents": build_spotlight_agents(conn),
         "explorer_agents": explorer_agent_entries(conn),

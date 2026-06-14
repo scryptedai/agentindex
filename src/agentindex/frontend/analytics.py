@@ -1000,6 +1000,9 @@ def build_identity_narratives(
         fields=("text",),
     )
 
+    proven = raw.get("ens_proven_links") or []
+    unproven = raw.get("ens_unproven_claims") or []
+
     return {
         "page": {
             "title": tpl["page"]["title"],
@@ -1010,6 +1013,10 @@ def build_identity_narratives(
             ),
         },
         "callouts": callouts,
+        "proven_links": proven,
+        "unproven_claims": unproven,
+        "proven_count": len(proven),
+        "unproven_count": len(unproven),
         "cross_chain_callout": cross_chain,
         "cross_chain_subtitle": subtitle_bundle["text"] if subtitle_bundle else "",
         "cross_chain_flow": build_cross_chain_flow(
