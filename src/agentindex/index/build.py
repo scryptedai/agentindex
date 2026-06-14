@@ -9,12 +9,16 @@ from typing import Any
 
 from agentindex.db.connection import open_db
 from agentindex.erc8004 import IDENTITY, REPUTATION, Registry
+from agentindex.ens.registrations import refresh_claimed_jsonl
+from agentindex.index.ens_sources import read_jsonl
 from agentindex.index.reputation import normalize_score
 from agentindex.index.sources import iter_registry_events
+from agentindex.storage.ens_meta import EnsMeta
 from agentindex.storage.paths import DataLayout
 
 
 ETHEREUM_MAINNET = 1
+LinkKey = tuple[int, str]
 
 
 @dataclass(frozen=True)
@@ -22,6 +26,10 @@ class BuildStats:
     agents: int
     feedback: int
     agents_with_feedback: int
+    ens_links: int
+    ens_verified_links: int
+    ens_agents: int
+    ens_names: int
     identity_events: int
     reputation_events: int
 
@@ -185,6 +193,97 @@ def _registry_watermark(
     )
 
 
+def _link_key(agent_id: int, ens_name: str) -> LinkKey:
+    return agent_id, ens_name.lower().strip()
+
+
+def _index_ens(
+    conn: sqlite3.Connection,
+    network_id: int,
+    layout: DataLayout,
+) -> tuple[int, int, int, int]:
+    meta = EnsMeta.load(layout.ens_meta_path)
+    refresh_claimed_jsonl(layout, meta)
+
+    verified_rows = read_jsonl(layout.ens_verified_path)
+    claimed_rows = read_jsonl(layout.ens_claimed_path)
+
+    merged: dict[LinkKey, dict[str, Any]] = {}
+
+    for row in verified_rows:
+        agent_id = int(row["agent_id"])
+        ens_name = str(row["ens_name"]).lower().strip()
+        key = _link_key(agent_id, ens_name)
+        merged[key] = {
+            "verified": 1,
+            "claimed": 0,
+            "text_record_key": row.get("text_record_key"),
+            "text_record_value": row.get("text_record_value"),
+            "token_uri": None,
+            "registration_path": None,
+            "checked_at": row.get("fetched_at"),
+        }
+
+    for row in claimed_rows:
+        agent_id = int(row["agent_id"])
+        ens_name = str(row.get("claimed_ens") or "").lower().strip()
+        if not ens_name:
+            continue
+        key = _link_key(agent_id, ens_name)
+        reg_path = str(layout.ens_registration_path(agent_id))
+        entry = merged.get(key)
+        if entry is None:
+            merged[key] = {
+                "verified": 0,
+                "claimed": 1,
+                "text_record_key": None,
+                "text_record_value": None,
+                "token_uri": row.get("token_uri"),
+                "registration_path": reg_path,
+                "checked_at": row.get("fetched_at"),
+            }
+            continue
+        entry["claimed"] = 1
+        entry["token_uri"] = row.get("token_uri") or entry.get("token_uri")
+        entry["registration_path"] = reg_path
+        if entry.get("checked_at") is None:
+            entry["checked_at"] = row.get("fetched_at")
+
+    verified_links = 0
+    agents: set[int] = set()
+    names: set[str] = set()
+
+    for (agent_id, ens_name), entry in merged.items():
+        if entry.get("verified"):
+            verified_links += 1
+        agents.add(agent_id)
+        names.add(ens_name)
+        conn.execute(
+            """
+            INSERT INTO ens_links (
+              network_id, agent_id, ens_name,
+              verified, claimed,
+              text_record_key, text_record_value,
+              token_uri, registration_path, checked_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                network_id,
+                agent_id,
+                ens_name,
+                int(entry.get("verified") or 0),
+                int(entry.get("claimed") or 0),
+                entry.get("text_record_key"),
+                entry.get("text_record_value"),
+                entry.get("token_uri"),
+                entry.get("registration_path"),
+                entry.get("checked_at"),
+            ),
+        )
+
+    return len(merged), verified_links, len(agents), len(names)
+
+
 def build_index(
     db_path,
     layout: DataLayout,
@@ -207,10 +306,14 @@ def build_index(
             "DELETE FROM reputation_agg WHERE network_id = ?",
             (network_id,),
         )
+        conn.execute("DELETE FROM ens_links WHERE network_id = ?", (network_id,))
 
         _index_identity(conn, network_id, identity_events)
         _index_reputation(conn, network_id, reputation_events)
         agents_with_feedback = _recompute_reputation_agg(conn, network_id)
+        ens_links, ens_verified_links, ens_agents, ens_names = _index_ens(
+            conn, network_id, layout
+        )
 
         indexed_at = datetime.now(timezone.utc).isoformat()
         id_block, id_log, id_at = _registry_watermark(identity_events)
@@ -242,6 +345,10 @@ def build_index(
         agents=int(agent_count),
         feedback=int(feedback_count),
         agents_with_feedback=agents_with_feedback,
+        ens_links=ens_links,
+        ens_verified_links=ens_verified_links,
+        ens_agents=ens_agents,
+        ens_names=ens_names,
         identity_events=len(identity_events),
         reputation_events=len(reputation_events),
     )

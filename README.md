@@ -85,6 +85,7 @@ Writes `data/agentindex.db` (override with `INDEX_DB`). Tables:
 | `reputation_feedback` | One row per `NewFeedback` event |
 | `reputation_agg` | Mean score per agent (non-revoked feedback) |
 | `registries` | Per-registry watermark `(block_number, log_index)` |
+| `ens_links` | Many-to-many agent ↔ ENS edges (`verified`, `claimed` flags per pair) |
 
 Example queries:
 
@@ -106,3 +107,51 @@ FROM agents WHERE first_seen_block > 24500000;
 ```
 
 Re-run `agentindex-build` after `agentindex-sync` to pick up new JSONL chunks.
+
+## ENS enrichment (`data/ethereum/ens/`)
+
+Two-phase pipeline: BigQuery for on-chain ENSIP-25 verifications, then HTTP fetch
+for registration JSON to extract claimed `.eth` names.
+
+```
+data/ethereum/ens/
+  meta.json
+  verified.jsonl              # BigQuery: agent-registration[registry][agentId] text records
+  claimed.jsonl               # one row per (agent_id, claimed_ens) edge
+  registrations/{agent_id}.json
+```
+
+**One-time ENS backfill:**
+
+```bash
+poetry run agentindex-ens-backfill   # BQ discovery + fetch all registration JSON
+poetry run agentindex-build          # merge into ens_links table in SQLite
+```
+
+**Daily ENS sync:**
+
+```bash
+poetry run agentindex-ens-sync       # refresh BQ + fetch new/changed token_uri only
+poetry run agentindex-build
+```
+
+| Command | What it does |
+|---------|----------------|
+| `agentindex-ens-backfill` | Full BQ scan + re-fetch all registration JSON |
+| `agentindex-ens-sync` | Refresh BQ + fetch only new/changed URIs |
+| `agentindex-build` | Loads `verified.jsonl` + `claimed.jsonl` → `ens_links` |
+
+Example queries:
+
+```sql
+-- All ENS names for one agent
+SELECT ens_name, verified, claimed
+FROM ens_links WHERE agent_id = 26433;
+
+-- All agents sharing one ENS name (two-sided lookup)
+SELECT agent_id, verified, claimed
+FROM ens_links WHERE ens_name = 'atv.eth';
+
+-- Verified on-chain links only
+SELECT agent_id, ens_name FROM ens_links WHERE verified = 1 ORDER BY ens_name;
+```

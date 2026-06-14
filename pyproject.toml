@@ -15,6 +15,8 @@ dependencies = [
 [project.scripts]
 agentindex-backfill = "agentindex.cli:main_backfill"
 agentindex-sync = "agentindex.cli:main_sync"
+agentindex-ens-backfill = "agentindex.cli:main_ens_backfill"
+agentindex-ens-sync = "agentindex.cli:main_ens_sync"
 agentindex-build = "agentindex.cli:main_build"
 
 [tool.poetry]
