@@ -30,6 +30,7 @@ function ScreenExplorer({initial}){
 
   const netLabel = (AX.meta && AX.meta.network && AX.meta.network.active && AX.meta.network.active.label) || 'Ethereum Mainnet';
   const resultsTpl = AX.explorerNarr && AX.explorerNarr.results_template;
+  const emptyResults = AX.explorerNarr && AX.explorerNarr.empty_results;
   const resultsLine = resultsTpl
     ? resultsTpl
         .replace('{count}', String(rows.length))
@@ -60,6 +61,11 @@ function ScreenExplorer({initial}){
     </Card>
 
     <Card>
+      {rows.length === 0 && q ? (
+        <div className="card-pad">
+          <Callout tone="blue" icon="explorer">{emptyResults || 'No matching agents in this network corpus.'}</Callout>
+        </div>
+      ) : (
       <div className="scrollx"><table className="tbl">
         <thead><tr><th>Agent</th><th>Name / ENS</th><th>Owner</th><th className="right">Composite</th><th>Confidence</th><th className="right">Flags</th><th>Indexed</th></tr></thead>
         <tbody>{rows.map(r=><tr key={r.id} style={{cursor:'pointer'}} onClick={()=>window.AXNAV('dossier',{agent:r.id})}>
@@ -73,6 +79,7 @@ function ScreenExplorer({initial}){
           <td className="muted" style={{fontSize:12}}>{r.seen?AX.fmtDate(r.seen):<span className="faint">-</span>}</td>
         </tr>)}</tbody>
       </table></div>
+      )}
     </Card>
   </div>);
 }
@@ -81,6 +88,8 @@ window.ScreenExplorer = ScreenExplorer;
 /* ---------------- Corpus ---------------- */
 function ScreenCorpus(){
   const cs=AX.corpus;
+  const bytesKpi = (AX.corpusNarr && AX.corpusNarr.kpi && AX.corpusNarr.kpi.bytes_billed) || {};
+  const honesty = AX.corpusNarr && AX.corpusNarr.honesty_callout;
   const tables=[
     {t:'agents',rows:cs.agents}, {t:'reputation_feedback',rows:cs.feedback_events},
     {t:'reputation_agg',rows:cs.agents_with_feedback}, {t:'ens_links',rows:cs.ens_links},
@@ -122,7 +131,7 @@ bursts[bursts >= 20]`;
       <KpiCard label="Indexed through" labelIcon="corpus" value={AX.fmtDate(cs.generated_at)} note="Batch pipeline · lag configurable"/>
       <KpiCard label="Schema version" labelIcon="info" value={'v'+ (AX.meta.schema_version || '?')} note={<>tables from local SQLite</>}/>
       <KpiCard label="Network" labelIcon="identity" value={AX.meta.network?.active?.label || 'Ethereum Mainnet'} note={<>chain <b>{AX.meta.network?.active?.chain_id || 1}</b> · from config/default.json</>}/>
-      <KpiCard label="Bytes billed (ingest)" labelIcon="download" value="8.4" unit="GB" note="last BigQuery partition scan"/>
+      <KpiCard label="Bytes billed (ingest)" labelIcon="download" value={bytesKpi.value || '—'} unit={bytesKpi.unit || ''} note={bytesKpi.note || 'registry + ENS BigQuery scans combined'}/>
     </div>
 
     <div className="grid" style={{gridTemplateColumns:'1fr 1.3fr'}}>
@@ -170,7 +179,7 @@ refresh    = batch (manual / cron)`}</pre>
           <CardHead title="Reproduce in a notebook" sub="Same corpus, in pandas" right={<Btn variant="text" icon="notebook" size="sm">Download .ipynb</Btn>}/>
           <div className="card-pad"><div className="code">{py}</div></div>
         </Card>
-        <Callout tone="blue" icon="info">{AX.corpusNarr?.honesty_callout?.body || ''}</Callout>
+        <Callout tone={honesty?.tone || 'blue'} icon={honesty?.icon || 'info'}>{honesty?.body || ''}</Callout>
       </div>
     </div>
   </div>);

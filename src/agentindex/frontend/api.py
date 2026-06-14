@@ -23,6 +23,7 @@ from agentindex.frontend.corpus import (
     agent_ens,
     agent_feedback,
     agent_row,
+    load_ingest_meta,
     load_raw_bundle,
     open_corpus,
 )
@@ -30,12 +31,22 @@ from agentindex.frontend.corpus import (
 FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"
 
 
+def _load_corpus_bundle(conn, settings: IndexSettings) -> dict[str, Any]:
+    network = settings.config.network()
+    ingest_meta = load_ingest_meta(settings)
+    return load_raw_bundle(
+        conn,
+        home_chain_id=network.chain_id,
+        ingest_meta=ingest_meta,
+    )
+
+
 @lru_cache(maxsize=1)
 def _bootstrap_cache() -> dict[str, Any]:
     settings = IndexSettings.load()
     conn, paths = open_corpus(settings)
     try:
-        raw = load_raw_bundle(conn)
+        raw = _load_corpus_bundle(conn, settings)
         payload = build_payload(
             raw,
             schema_version=paths.schema_version,
@@ -82,7 +93,7 @@ def create_app() -> FastAPI:
                 "cross_registrations": agent_cross(conn, agent_id),
                 "feedback_events": agent_feedback(conn, agent_id),
             }
-            raw = load_raw_bundle(conn)
+            raw = _load_corpus_bundle(conn, IndexSettings.load())
             indexes = build_indexes(raw)
             derived = derive_agent(entry, indexes)
             return {

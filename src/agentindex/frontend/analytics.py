@@ -13,9 +13,11 @@ from urllib.parse import urlparse
 from agentindex.frontend.narratives.engine import load_templates, render
 from agentindex.frontend.narratives.metrics import (
     agent_metrics,
+    corpus_metrics,
     identity_metrics,
     overview_metrics,
     reviewer_independence_metrics,
+    reviewer_page_metrics,
     reviewer_profile_metrics,
 )
 from agentindex.frontend.narratives.reactions import (
@@ -83,6 +85,38 @@ def build_indexes(raw: dict[str, Any]) -> dict[str, Any]:
         "reviewer_map": reviewer_map,
         "collision_agents": collision_agents,
     }
+
+
+def _react_page_description(
+    section: str,
+    ctx: dict[str, Any],
+    description_tpl: str,
+) -> str:
+    group = load_reactions().get(section, {}).get("page_description")
+    if group:
+        text, _ = react_text(group, ctx)
+        if text:
+            return text
+    return render(description_tpl, **ctx)
+
+
+def dossier_empty_states(
+    agent: dict[str, Any],
+    *,
+    network_label: str,
+) -> dict[str, str]:
+    ctx = agent_metrics(agent, network_label=network_label)
+    rx = load_reactions()["dossier"]["empty"]
+    return {key: react_text(rx[key], ctx)[0] for key in rx}
+
+
+def _attach_empty_states(
+    agents: list[dict[str, Any]],
+    *,
+    network_label: str,
+) -> None:
+    for agent in agents:
+        agent["empty"] = dossier_empty_states(agent, network_label=network_label)
 
 
 def derive_agent(entry: dict[str, Any], indexes: dict[str, Any]) -> dict[str, Any]:
@@ -785,9 +819,13 @@ def build_overview_narratives(
         }
 
     shape_label, _ = react_text(rx["score_distribution"]["shape_label"], ctx)
-    callout, callout_id = react_text(rx["score_distribution"]["callout"], ctx)
+    callout_bundle = react_bundle(rx["score_distribution"]["callout"], ctx, fields=("text",))
     teaser_title, teaser_title_id = react_text(rx["sybil_teaser"]["title"], ctx)
     teaser_sub, teaser_sub_id = react_text(rx["sybil_teaser"]["subtitle"], ctx)
+    teaser_cta, _ = react_text(rx["sybil_teaser"]["cta"], ctx)
+    cov_rx = rx["reputation_coverage"]
+    cov_sub, _ = react_text(cov_rx["subtitle"], ctx)
+    cov_insight, _ = react_text(cov_rx["insight"], ctx)
 
     kpi_rx = rx["kpi"]
     silent_note, _ = react_text(kpi_rx["silent_majority"], ctx)
@@ -795,12 +833,16 @@ def build_overview_narratives(
     factory_note, _ = react_text(kpi_rx["factory_watch"], ctx)
     ens_note, _ = react_text(kpi_rx["ens_verified"], ctx)
 
+    page_ctx = {**ctx, **(net_ctx or {})}
     return {
-        "page": render_block_safe(
-            tpl["page"],
-            indexed_through=ctx["indexed_through"],
-            **(net_ctx or {}),
-        ),
+        "page": {
+            "title": tpl["page"]["title"],
+            "description": _react_page_description(
+                "overview",
+                page_ctx,
+                tpl["page"]["description"],
+            ),
+        },
         "hero": hero,
         "kpi": {
             "silent_majority": {
@@ -826,6 +868,10 @@ def build_overview_narratives(
                 "note": ens_note,
             },
         },
+        "reputation_coverage": {
+            "subtitle": cov_sub,
+            "insight": cov_insight,
+        },
         "score_distribution": {
             "title": tpl["score_distribution"]["title"],
             "subtitle": render(
@@ -833,13 +879,15 @@ def build_overview_narratives(
                 feedback_events=ctx["feedback_events"],
                 shape_label=shape_label,
             ),
-            "callout": callout,
-            "reaction": callout_id,
+            "callout": callout_bundle["text"] if callout_bundle else "",
+            "callout_tone": callout_bundle.get("tone", "blue") if callout_bundle else "blue",
+            "callout_icon": callout_bundle.get("icon", "info") if callout_bundle else "info",
+            "reaction": callout_bundle.get("id") if callout_bundle else None,
         },
         "sybil_teaser": {
             "title": teaser_title,
             "subtitle": teaser_sub,
-            "cta": tpl["sybil_teaser"]["cta"],
+            "cta": teaser_cta,
             "reaction": teaser_title_id or teaser_sub_id,
         },
     }
@@ -921,6 +969,7 @@ def build_identity_narratives(
 ) -> dict[str, Any]:
     tpl = load_templates()["identity"]
     ctx = identity_metrics(raw)
+    ctx.update(net_ctx or {})
     callouts: list[dict[str, Any]] = []
 
     collision = react_bundle(
@@ -939,12 +988,34 @@ def build_identity_narratives(
         )
 
     cross_chain, _ = react_text(load_reactions()["identity"]["cross_chain"], ctx)
+    subtitle_bundle = react_bundle(
+        load_reactions()["identity"]["cross_chain_subtitle"],
+        ctx,
+        fields=("text",),
+    )
 
     return {
-        "page": render_block_safe(tpl["page"], **(net_ctx or {})),
+        "page": {
+            "title": tpl["page"]["title"],
+            "description": _react_page_description(
+                "identity",
+                ctx,
+                tpl["page"]["description"],
+            ),
+        },
         "callouts": callouts,
         "cross_chain_callout": cross_chain,
+        "cross_chain_subtitle": subtitle_bundle["text"] if subtitle_bundle else "",
     }
+
+
+def _format_bytes_kpi(bytes_billed: int) -> tuple[str, str]:
+    if bytes_billed <= 0:
+        return "—", ""
+    gb = bytes_billed / 1e9
+    if gb >= 0.05:
+        return f"{gb:.1f}", "GB"
+    return f"{bytes_billed / 1e6:.0f}", "MB"
 
 
 def build_payload(
@@ -971,6 +1042,8 @@ def build_payload(
     explorer_entries = raw.get("explorer_agents") or spotlight_entries
     agents = [derive_agent(entry, indexes) for entry in spotlight_entries]
     explorer_derived = [derive_agent(entry, indexes) for entry in explorer_entries]
+    _attach_empty_states(agents, network_label=net_ctx["network_label"])
+    _attach_empty_states(explorer_derived, network_label=net_ctx["network_label"])
     agent_by_id = {a["id"]: a for a in explorer_derived}
     signals = build_signals(raw, explorer_derived, indexes)
     reviewer_stories = build_reviewer_stories(raw)
@@ -1011,17 +1084,57 @@ def build_payload(
         sev: react_text(sybil_rx["severity_notes"][sev], sev_ctx)[0]
         for sev in ("high", "med", "low")
     }
-    explorer_block = render_block_safe(load_templates()["explorer"], **net_ctx)
+    reviewer_tpl = load_templates()["reviewer"]
+    reviewer_rx = load_reactions()["reviewer"]
+    rev_page_ctx = {**net_ctx, **reviewer_page_metrics(raw, independence_examples)}
+    indep_sub, _ = react_text(reviewer_rx["independence_subtitle"], rev_page_ctx)
+
+    explorer_tpl = load_templates()["explorer"]
+    explorer_block = render_block_safe(explorer_tpl, **net_ctx)
+    explorer_block["page"] = {
+        "title": explorer_tpl["page"]["title"],
+        "description": _react_page_description(
+            "explorer",
+            net_ctx,
+            explorer_tpl["page"]["description"],
+        ),
+    }
     explorer_block["empty_results"] = react_text(
         load_reactions()["explorer"]["empty_results"], net_ctx
     )[0]
-    corpus_block = render_block_safe(load_templates()["corpus"], **net_ctx)
-    honesty = load_templates()["corpus"]["honesty_callout"]
-    corpus_block["honesty_callout"] = {
-        "tone": honesty["tone"],
-        "icon": honesty["icon"],
-        "body": react_text(load_reactions()["corpus"]["honesty_callout"], net_ctx)[0],
+    corpus_tpl = load_templates()["corpus"]
+    corpus_block = render_block_safe(corpus_tpl, **net_ctx)
+    corpus_ctx = corpus_metrics(raw)
+    corpus_ctx.update(net_ctx)
+    corpus_rx = load_reactions()["corpus"]
+    corpus_block["page"] = {
+        "title": corpus_tpl["page"]["title"],
+        "description": _react_page_description(
+            "corpus",
+            corpus_ctx,
+            corpus_tpl["page"]["description"],
+        ),
     }
+    honesty_bundle = react_bundle(corpus_rx["honesty_callout"], corpus_ctx, fields=("text",))
+    bytes_note, _ = react_text(corpus_rx["bytes_billed_note"], corpus_ctx)
+    bytes_value, bytes_unit = _format_bytes_kpi(corpus_ctx["bytes_billed"])
+    honesty_tpl = corpus_tpl["honesty_callout"]
+    corpus_block["honesty_callout"] = {
+        "tone": (honesty_bundle or {}).get("tone", honesty_tpl["tone"]),
+        "icon": (honesty_bundle or {}).get("icon", honesty_tpl["icon"]),
+        "body": honesty_bundle["text"] if honesty_bundle else "",
+        "reaction": (honesty_bundle or {}).get("id"),
+    }
+    corpus_block["kpi"] = {
+        "bytes_billed": {
+            "value": bytes_value,
+            "unit": bytes_unit,
+            "note": bytes_note,
+        },
+    }
+    dossier_tpl = load_templates()["dossier"]
+    dossier_rx = load_reactions()["dossier"]
+    not_found, _ = react_text(dossier_rx["not_found"], net_ctx)
     return {
         "raw": raw,
         "meta": {
@@ -1037,22 +1150,39 @@ def build_payload(
             "explorerIndex": build_explorer_index(explorer_derived, raw),
             "dossierCallouts": dossier_callout_map,
             "dossier": {
-                "page": render_block_safe(
-                    load_templates()["dossier"]["page"],
-                    **net_ctx,
-                ),
+                "page": {
+                    "title": dossier_tpl["page"]["title"],
+                    "description": _react_page_description(
+                        "dossier",
+                        net_ctx,
+                        dossier_tpl["page"]["description"],
+                    ),
+                },
+                "not_found": not_found,
             },
             "overview": build_overview_narratives(raw, signals, net_ctx=net_ctx),
             "identity": build_identity_narratives(raw, net_ctx=net_ctx),
             "reviewer": {
-                "page": render_block_safe(
-                    load_templates()["reviewer"]["page"],
-                    **net_ctx,
-                ),
+                "page": {
+                    "title": reviewer_tpl["page"]["title"],
+                    "description": _react_page_description(
+                        "reviewer",
+                        rev_page_ctx,
+                        reviewer_tpl["page"]["description"],
+                    ),
+                },
+                "independence_subtitle": indep_sub,
                 "independenceExamples": independence_examples,
             },
             "sybil": {
-                "page": render_block_safe(sybil_tpl["page"], **net_ctx),
+                "page": {
+                    "title": sybil_tpl["page"]["title"],
+                    "description": _react_page_description(
+                        "sybil",
+                        {**net_ctx, **sev_ctx},
+                        sybil_tpl["page"]["description"],
+                    ),
+                },
                 "severityNotes": severity_notes,
             },
             "explorer": explorer_block,

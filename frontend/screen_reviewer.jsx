@@ -63,7 +63,7 @@ function ScreenReviewer({initial}){
       <div className="col gap16">
         <Card className="card-pad">
           <div className="section-title">Review independence</div>
-          <div className="section-sub mb16">Share of an agent's feedback that comes from clients who reviewed ≤3 agents total.</div>
+          <div className="section-sub mb16">{AX.reviewerNarr?.independence_subtitle || "Share of an agent's feedback that comes from clients who reviewed ≤3 agents total."}</div>
           {(indepExamples.length ? indepExamples : [{agent_id:22721,independence_pct:95}]).map(item=>{
             const a=AX.agentById[item.agent_id];
             const v=item.independence_pct != null ? item.independence_pct : (a&&a.independence!=null?Math.round(a.independence*100):0);

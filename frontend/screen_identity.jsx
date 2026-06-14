@@ -44,7 +44,7 @@ function ScreenIdentity(){
       </Card>
 
       <Card>
-        <CardHead title="Cross-chain registrations" sub={`${AX.fmtInt(AX.corpus.cross_registrations)} references, mostly Ethereum self-refs`}
+        <CardHead title="Cross-chain registrations" sub={narr.cross_chain_subtitle || ''}
         />
         <div className="card-pad">
           <CrossChainFlow height={230}/>

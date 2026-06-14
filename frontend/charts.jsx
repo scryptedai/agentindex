@@ -184,7 +184,7 @@ function AgentTimeline({agent, height=320}){
     });
     return ()=>inst.current&&inst.current.destroy();
   },[agent.id]);
-  if(!fb.length) return <div style={{height,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--ink-3)',fontSize:14}}>No feedback events; reputation timeline unavailable.</div>;
+  if(!fb.length) return <div style={{height,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--ink-3)',fontSize:14}}>{agent.empty?.timeline || 'No feedback events; reputation timeline unavailable.'}</div>;
   return <div style={{height}}><canvas ref={ref}></canvas></div>;
 }
 

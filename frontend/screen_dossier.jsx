@@ -31,7 +31,8 @@ function ScreenDossier({initial}){
   const [id,setId]=useState(()=> AX.agentById[defaultId] ? defaultId : (AX.agents[0] && AX.agents[0].id));
   useEffect(()=>{ if(initial&&initial.agent&&AX.agentById[initial.agent]) setId(initial.agent); },[initial]);
   const a = AX.agentById[id];
-  if(!a) return <div className="view"><Card className="card-pad"><div className="muted">Agent not found in indexed corpus.</div></Card></div>;
+  const empty = (a && a.empty) || {};
+  if(!a) return <div className="view"><Card className="card-pad"><div className="muted">{AX.dossierNarr?.not_found || 'Agent not found in indexed corpus.'}</div></Card></div>;
   const [tab,setTab]=useState('events');
   useEffect(()=>setTab('events'),[id]);
 
@@ -73,7 +74,7 @@ function ScreenDossier({initial}){
               :<a href={a.agent.token_uri} target="_blank" rel="noreferrer" className="mono" style={{fontSize:12,wordBreak:'break-all'}}>{a.agent.token_uri}</a>}
           </div></div>
           <div className="idrow"><div className="l">ENS</div><div className="v flex col gap8" style={{marginTop:4}}>
-            {a.ens.length===0 && <span className="faint">No ENS link</span>}
+            {a.ens.length===0 && <span className="faint">{empty.ens || 'No ENS link'}</span>}
             {a.ens.map((e,i)=><span key={i} className="flex aic gap8">
               {e.verified?<Tag tone="green" icon="verified">{e.ens_name}</Tag>
                 : <span className="tag tag-grey" style={{borderStyle:'dashed',border:'1px dashed var(--border)'}}><Icon name="ens" size={13}/>{e.ens_name} · claimed</span>}
@@ -125,7 +126,7 @@ function ScreenDossier({initial}){
               <td className="num" style={{color:AX.scoreColor(e.score),fontWeight:700}}>{e.score}</td>
               <td className="muted" style={{fontSize:12}}>{AX.fmtDateTime(e.block_timestamp)}</td>
             </tr>)}</tbody></table>
-            :<div className="muted" style={{padding:24,textAlign:'center'}}>No feedback events.</div>)}
+            :<div className="muted" style={{padding:24,textAlign:'center'}}>{empty.events || 'No feedback events.'}</div>)}
 
           {tab==='reviewers' && (reviewers.length?<table className="tbl">
             <thead><tr><th>Client</th><th className="right">n</th><th className="right">avg</th><th>Last</th></tr></thead>
@@ -137,7 +138,7 @@ function ScreenDossier({initial}){
               <td className="num" style={{color:AX.scoreColor(r.avg),fontWeight:700}}>{r.avg.toFixed(0)}</td>
               <td className="muted" style={{fontSize:12}}>{AX.fmtDate(r.last)}</td>
             </tr>;})}</tbody></table>
-            :<div className="muted" style={{padding:24,textAlign:'center'}}>No reviewers.</div>)}
+            :<div className="muted" style={{padding:24,textAlign:'center'}}>{empty.reviewers || 'No reviewers.'}</div>)}
 
           {tab==='flags' && <div className="card-pad col gap12">
             <div>
@@ -151,7 +152,7 @@ function ScreenDossier({initial}){
             <div className="col gap8">
               {a.flags.length?a.flags.map((f,i)=><div key={i} className="flex aic gap12" style={{padding:'8px 0'}}>
                 <FlagChip flag={f}/><span className="muted" style={{fontSize:12.5}}>{f.tip}</span></div>)
-                :<span className="muted">No heuristic flags raised.</span>}
+                :<span className="muted">{empty.flags || 'No heuristic flags raised.'}</span>}
             </div>
           </div>}
         </div>

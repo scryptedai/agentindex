@@ -137,3 +137,119 @@ def test_overview_metrics_and_reactions_integration():
 
     silent_text, _ = react_text(load_reactions()["overview"]["kpi"]["silent_majority"], ctx)
     assert "900" in silent_text.replace(",", "")
+
+
+def test_corpus_metrics_staleness_and_bytes():
+    from agentindex.frontend.narratives.metrics import corpus_metrics
+    from agentindex.frontend.narratives.reactions import load_reactions, react_bundle, react_text
+
+    raw = {
+        "corpus_stats": {"generated_at": "2020-01-01", "cross_registrations": 100, "chain_id": 1},
+        "cross_chain_stats": {
+            "total": 100,
+            "on_home_chain": 95,
+            "foreign_chain": 5,
+            "foreign_chain_count": 2,
+            "home_chain_id": 1,
+        },
+        "ingest_meta": {"bytes_billed": 8_400_000_000},
+    }
+    ctx = corpus_metrics(raw)
+    assert ctx["bytes_billed_gb"] == 8.4
+    assert ctx["days_since_indexed"] >= 2000
+
+    rx = load_reactions()["corpus"]
+    stale = react_bundle(rx["honesty_callout"], ctx, fields=("text",))
+    assert stale["id"] == "corpus_stale"
+    note, note_id = react_text(rx["bytes_billed_note"], ctx)
+    assert note_id == "bytes_recorded"
+
+
+def test_identity_cross_chain_subtitle():
+    from agentindex.frontend.narratives.metrics import identity_metrics
+    from agentindex.frontend.narratives.reactions import load_reactions, react_bundle
+
+    raw = {
+        "corpus_stats": {"cross_registrations": 500, "chain_id": 1},
+        "cross_chain_stats": {
+            "total": 500,
+            "on_home_chain": 480,
+            "foreign_chain": 20,
+            "foreign_chain_count": 2,
+            "home_chain_id": 1,
+        },
+        "ens_name_collisions": [],
+    }
+    ctx = identity_metrics(raw)
+    ctx["network_label"] = "Ethereum Mainnet"
+    subtitle = react_bundle(
+        load_reactions()["identity"]["cross_chain_subtitle"],
+        ctx,
+        fields=("text",),
+    )
+    assert subtitle["id"] == "cross_subtitle_multi_chain"
+    assert "2 foreign chains" in subtitle["text"]
+
+
+def test_reputation_coverage_and_page_descriptions():
+    from agentindex.frontend.narratives.metrics import overview_metrics
+    from agentindex.frontend.narratives.reactions import load_reactions, react_text
+    from agentindex.frontend.analytics import _react_page_description
+
+    raw = {
+        "corpus_stats": {
+            "agents": 1000,
+            "agents_with_feedback": 50,
+            "feedback_events": 500,
+            "unique_clients": 20,
+            "ens_links": 50,
+            "ens_verified": 5,
+            "generated_at": "2026-06-01",
+        },
+        "daily_registrations": [{"day": "2026-02-01", "registrations": 10}],
+        "daily_feedback": [],
+        "score_distribution": [],
+        "owner_concentration": [],
+    }
+    ctx = overview_metrics(raw, signal_count=0)
+    ctx.update({"network_label": "Ethereum Mainnet", "chain_id": 1, "agent_count": 1000})
+    insight, insight_id = react_text(
+        load_reactions()["overview"]["reputation_coverage"]["insight"], ctx
+    )
+    assert insight_id == "cov_silent_majority"
+    assert "950" in insight.replace(",", "")
+
+    page = _react_page_description(
+        "overview",
+        ctx,
+        "fallback {network_label}",
+    )
+    assert "Ethereum Mainnet" in page
+    assert "95" in page or "silent" in page.lower()
+
+
+def test_dossier_empty_states():
+    from agentindex.frontend.analytics import dossier_empty_states
+
+    agent = {
+        "id": 1,
+        "n": 0,
+        "composite": None,
+        "burstCount": 0,
+        "burstWindowMin": 0,
+        "uniqueClients": 0,
+        "ownerCount": 1,
+        "ens": [],
+        "independence": None,
+        "isBurst": False,
+        "isFactory": False,
+        "isCollision": False,
+        "cliff": False,
+        "sparse": False,
+        "hasFeedback": False,
+        "confidence": {"level": "none", "reasons": []},
+        "spanDays": 0,
+    }
+    empty = dossier_empty_states(agent, network_label="Ethereum Mainnet")
+    assert "no reputation events" in empty["events"].lower()
+    assert "timeline needs" in empty["timeline"].lower()

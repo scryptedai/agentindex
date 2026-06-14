@@ -53,7 +53,7 @@ function ScreenOverview({tweaks}){
 
     <div className="grid" style={{gridTemplateColumns:'1.15fr 1fr'}}>
       <Card>
-        <CardHead title="Reputation coverage" sub="How much of the registry carries any signal at all"/>
+        <CardHead title="Reputation coverage" sub={narr.reputation_coverage?.subtitle || 'How much of the registry carries any signal at all'}/>
         <div className="card-pad">
           <div className="silent-bar" style={{height:40}}>
             <i style={{width:AX.pct(cs.agents_with_feedback,cs.agents)+'%',background:'var(--blue)'}} title="with feedback"></i>
@@ -65,6 +65,10 @@ function ScreenOverview({tweaks}){
             <span className="flex aic gap8 muted"><span style={{width:10,height:10,borderRadius:2,background:'var(--surface-alt)',border:'1px solid var(--border)',display:'inline-block'}}></span>
               {AX.fmtInt(silent)} silent</span>
           </div>
+          {narr.reputation_coverage?.insight && <>
+            <div className="divider"></div>
+            <div className="muted" style={{fontSize:13}}>{narr.reputation_coverage.insight}</div>
+          </>}
           <div className="divider"></div>
           <div className="grid" style={{gridTemplateColumns:'1fr 1fr 1fr',gap:12}}>
             <Stat label="Agents" value={AX.fmtInt(cs.agents)}/>
@@ -77,7 +81,7 @@ function ScreenOverview({tweaks}){
         <CardHead title={scoreNarr.title || 'Score distribution'} sub={scoreNarr.subtitle || ''}/>
         <div className="card-pad">
           <ScoreHistogram height={220}/>
-          <Callout tone="amber" icon="warn">{scoreNarr.callout || ''}</Callout>
+          <Callout tone={scoreNarr.callout_tone || 'blue'} icon={scoreNarr.callout_icon || 'info'}>{scoreNarr.callout || ''}</Callout>
         </div>
       </Card>
     </div>
@@ -91,7 +95,7 @@ function ScreenOverview({tweaks}){
             <div className="section-sub">{teaser.subtitle || ''}</div>
           </div>
         </div>
-        <Btn variant="primary" icon="arrowr" onClick={()=>window.AXNAV('sybil')}>Open Sybil Signals</Btn>
+        <Btn variant="primary" icon="arrowr" onClick={()=>window.AXNAV('sybil')}>{teaser.cta || 'Open Sybil Signals'}</Btn>
       </div>
     </Card>
   </div>);

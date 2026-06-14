@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import statistics
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 
@@ -108,6 +108,7 @@ def overview_metrics(raw: dict[str, Any], signal_count: int) -> dict[str, Any]:
         "ens_verified_rate": ens_verified_rate,
         "signal_count": signal_count,
         "indexed_through": cs["generated_at"],
+        "agents_with_feedback": cs["agents_with_feedback"],
     }
 
 
@@ -143,25 +144,69 @@ def agent_metrics(agent: dict[str, Any], *, network_label: str) -> dict[str, Any
     }
 
 
+def _parse_date(iso: str | None) -> date | None:
+    if not iso:
+        return None
+    try:
+        return date.fromisoformat(str(iso)[:10])
+    except ValueError:
+        return None
+
+
+def _cross_share_fields(cross: dict[str, Any], cs: dict[str, Any]) -> dict[str, Any]:
+    total = int(cross.get("total") or cs.get("cross_registrations") or 0)
+    on_home = int(cross.get("on_home_chain") or 0)
+    foreign = int(cross.get("foreign_chain") or 0)
+    return {
+        "cross_registrations": total,
+        "cross_on_home_chain": on_home,
+        "cross_foreign_chain": foreign,
+        "foreign_chain_count": int(cross.get("foreign_chain_count") or 0),
+        "home_chain_id": cross.get("home_chain_id", cs.get("chain_id", 1)),
+        "home_share_pct": 100 * on_home / total if total else 0,
+        "foreign_share_pct": 100 * foreign / total if total else 0,
+    }
+
+
+def corpus_metrics(raw: dict[str, Any], ingest_meta: dict[str, Any] | None = None) -> dict[str, Any]:
+    cs = raw["corpus_stats"]
+    indexed = _parse_date(cs.get("generated_at"))
+    days_since_indexed = (date.today() - indexed).days if indexed else 0
+    ingest = ingest_meta or raw.get("ingest_meta") or {}
+    bytes_billed = int(ingest.get("bytes_billed") or 0)
+    cross = raw.get("cross_chain_stats") or {}
+    return {
+        "indexed_through": cs["generated_at"],
+        "days_since_indexed": days_since_indexed,
+        "bytes_billed": bytes_billed,
+        "bytes_billed_gb": bytes_billed / 1e9 if bytes_billed else 0,
+        **_cross_share_fields(cross, cs),
+    }
+
+
 def identity_metrics(raw: dict[str, Any]) -> dict[str, Any]:
+    cs = raw["corpus_stats"]
+    cross = raw.get("cross_chain_stats") or {}
     collisions = raw["ens_name_collisions"]
     worst = max(collisions, key=lambda c: len(c["agent_ids"].split(",")), default=None)
+    base = {
+        **_cross_share_fields(cross, cs),
+        "collision_cluster_count": len(collisions),
+        "collision_count": 0,
+        "verified_count": 0,
+        "worst_ens_name": "",
+    }
     if not worst:
-        return {
-            "collision_count": 0,
-            "verified_count": 0,
-            "worst_ens_name": "",
-            "cross_registrations": raw["corpus_stats"].get("cross_registrations", 0),
-        }
+        return base
     count = len(worst["agent_ids"].split(","))
     verified = int(worst["verified_count"])
     return {
+        **base,
         "collision_count": count,
         "verified_count": verified,
         "worst_ens_name": worst["ens_name"],
         "ens_name": worst["ens_name"],
         "agent_count": count,
-        "cross_registrations": raw["corpus_stats"].get("cross_registrations", 0),
     }
 
 
@@ -177,6 +222,22 @@ def reviewer_profile_metrics(profile: dict[str, Any]) -> dict[str, Any]:
         "span_days": span,
         "agents_per_review": agents / max(reviews, 1),
         "sequential_burst": reviews >= 30 and agents <= max(10, reviews // 4),
+    }
+
+
+def reviewer_page_metrics(
+    raw: dict[str, Any],
+    independence_examples: list[dict[str, Any]],
+) -> dict[str, Any]:
+    profiles = raw.get("reviewer_profiles") or []
+    top = profiles[0] if profiles else None
+    example = independence_examples[0] if independence_examples else None
+    return {
+        "reviewer_count": len(profiles),
+        "top_reviews": int(top["total_reviews"]) if top else 0,
+        "example_count": len(independence_examples),
+        "top_independence_pct": int(example["independence_pct"]) if example else 0,
+        "top_example_agent": int(example["agent_id"]) if example else 0,
     }
 
 

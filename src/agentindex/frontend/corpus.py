@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from agentindex.config.settings import IndexSettings
+from agentindex.storage.meta import Meta
+from agentindex.storage.paths import DataLayout
+from agentindex.storage.ens_meta import EnsMeta
 
 
 @dataclass(frozen=True)
@@ -310,9 +313,57 @@ def cross_chain_summary(conn: sqlite3.Connection, *, limit: int = 12) -> list[di
     ]
 
 
-def load_raw_bundle(conn: sqlite3.Connection) -> dict[str, Any]:
+def cross_chain_stats(conn: sqlite3.Connection, home_chain_id: int = 1) -> dict[str, Any]:
+    row = conn.execute(
+        """
+        SELECT
+            COUNT(*) AS total,
+            SUM(CASE WHEN chain_id = ? THEN 1 ELSE 0 END) AS on_home_chain,
+            SUM(CASE WHEN chain_id != ? THEN 1 ELSE 0 END) AS foreign_chain,
+            COUNT(DISTINCT CASE WHEN chain_id != ? THEN chain_id END) AS foreign_chain_count
+        FROM agent_registrations
+        """,
+        (home_chain_id, home_chain_id, home_chain_id),
+    ).fetchone()
+    return {
+        "home_chain_id": home_chain_id,
+        "total": int(row["total"] or 0),
+        "on_home_chain": int(row["on_home_chain"] or 0),
+        "foreign_chain": int(row["foreign_chain"] or 0),
+        "foreign_chain_count": int(row["foreign_chain_count"] or 0),
+    }
+
+
+def load_ingest_meta(settings: IndexSettings | None = None) -> dict[str, Any]:
+    settings = settings or IndexSettings.load()
+    network = settings.config.network()
+    layout = DataLayout(settings.data_dir, network.key)
+    bytes_billed = 0
+    launch_date = network.launch_date
+    if isinstance(launch_date, str):
+        launch_date = date.fromisoformat(launch_date)
+    if layout.meta_path.is_file():
+        meta = Meta.load(
+            layout.meta_path,
+            network.key,
+            launch_date,
+        )
+        bytes_billed = sum(r.total_bytes_billed for r in meta.registries.values())
+    ens_meta = EnsMeta.load(layout.ens_meta_path)
+    bytes_billed += ens_meta.bq_bytes_billed
+    return {"bytes_billed": bytes_billed, "bytes_billed_gb": bytes_billed / 1e9}
+
+
+def load_raw_bundle(
+    conn: sqlite3.Connection,
+    *,
+    home_chain_id: int = 1,
+    ingest_meta: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     return {
         "corpus_stats": corpus_stats(conn),
+        "cross_chain_stats": cross_chain_stats(conn, home_chain_id),
+        "ingest_meta": ingest_meta or {},
         "daily_registrations": daily_registrations(conn),
         "daily_feedback": daily_feedback(conn),
         "score_distribution": score_distribution(conn),
