@@ -11,6 +11,21 @@ from typing import Any
 from urllib.parse import urlparse
 
 from agentindex.frontend.narratives.engine import load_templates, render
+from agentindex.frontend.narratives.metrics import (
+    agent_metrics,
+    identity_metrics,
+    overview_metrics,
+    reviewer_independence_metrics,
+    reviewer_profile_metrics,
+)
+from agentindex.frontend.narratives.reactions import (
+    load_reactions,
+    pick_all,
+    react_bundle,
+    react_pair,
+    react_text,
+    react_why,
+)
 
 PUNITIVE_CLIENTS = {
     "0xab0b2d97b6ab1d0a16d8834a162098ce78da137b",
@@ -124,45 +139,52 @@ def derive_agent(entry: dict[str, Any], indexes: dict[str, Any]) -> dict[str, An
     sparse = 0 < n < 10
     punitive_touch = any(e["client"].lower() in PUNITIVE_CLIENTS for e in feedback)
 
-    templates = load_templates()["dossier"]["flags"]
+    flag_meta = load_templates()["dossier"]["flags"]
+    flag_rx = load_reactions()["dossier"]["flags"]
     flags: list[dict[str, Any]] = []
 
     def add_flag(key: str, ctx: dict[str, Any]) -> None:
-        spec = templates[key]
+        spec = flag_meta[key]
+        tip, tip_id = react_text(flag_rx[key], ctx)
         flags.append(
             {
                 "k": key,
                 "label": spec["label"],
                 "sev": spec["sev"],
-                "tip": render(spec["tip_template"], **ctx),
+                "tip": tip,
+                "reaction": tip_id,
             }
         )
 
-    if is_burst:
-        add_flag(
-            "burst",
-            {"burst_count": burst_count, "burst_window_min": burst_window_min},
-        )
-    if is_factory:
-        add_flag("factory", {"owner_count": owner_count})
-    if is_collision:
-        add_flag("collision", {"ens_name": ens_name})
-    if single_reviewer:
-        add_flag("single", {"unique_clients": unique_clients, "n": n})
-    if cliff:
-        add_flag("cliff", {"composite": composite, "n": n})
-    if punitive_touch:
-        add_flag("punitive", {})
-    if sparse and not cliff:
-        add_flag("sparse", {"n": n})
-    if n == 0:
-        add_flag("ghost", {})
+    flag_ctx = {
+        "burst_count": burst_count,
+        "burst_window_min": burst_window_min,
+        "owner_count": owner_count or 0,
+        "ens_name": ens_name or "",
+        "unique_clients": unique_clients,
+        "n": n,
+        "composite": composite or 0,
+    }
 
-    reasons: list[str] = []
-    reason_tpl = load_templates()["dossier"]["confidence_reasons"]
+    if is_burst:
+        add_flag("burst", flag_ctx)
+    if is_factory:
+        add_flag("factory", flag_ctx)
+    if is_collision:
+        add_flag("collision", flag_ctx)
+    if single_reviewer:
+        add_flag("single", flag_ctx)
+    if cliff:
+        add_flag("cliff", flag_ctx)
+    if punitive_touch:
+        add_flag("punitive", flag_ctx)
+    if sparse and not cliff:
+        add_flag("sparse", flag_ctx)
+    if n == 0:
+        add_flag("ghost", flag_ctx)
+
     if n == 0:
         level = "none"
-        reasons.append(reason_tpl["no_feedback"])
     elif (
         is_factory
         or single_reviewer
@@ -170,16 +192,6 @@ def derive_agent(entry: dict[str, Any], indexes: dict[str, Any]) -> dict[str, An
         or n < 5
     ):
         level = "low"
-        if is_factory:
-            reasons.append(
-                render(reason_tpl["factory_owner"], owner_count=owner_count)
-            )
-        if single_reviewer:
-            reasons.append(reason_tpl["single_reviewer"])
-        if n < 5:
-            reasons.append(render(reason_tpl["small_sample"], n=n))
-        if is_burst and burst_window_min < 60:
-            reasons.append(reason_tpl["compressed_window"])
     elif (
         is_burst
         or cliff
@@ -188,36 +200,31 @@ def derive_agent(entry: dict[str, Any], indexes: dict[str, Any]) -> dict[str, An
         or (independence is not None and independence < 0.85)
     ):
         level = "med"
-        if is_burst:
-            reasons.append(
-                render(
-                    reason_tpl["burst_timing"],
-                    burst_count=burst_count,
-                    burst_window_min=burst_window_min,
-                )
-            )
-        if cliff:
-            reasons.append(reason_tpl["perfect_thin"])
-        if punitive_touch:
-            reasons.append(reason_tpl["punitive_touch"])
-        if not is_burst and not cliff:
-            reasons.append(reason_tpl["moderate_independence"])
     else:
         level = "high"
-        reasons.append(
-            render(
-                reason_tpl["strong_sample"],
-                n=n,
-                unique_clients=unique_clients,
-            )
-        )
-    if independence is not None:
-        reasons.append(
-            render(
-                reason_tpl["independence_pct"],
-                independence_pct=independence * 100,
-            )
-        )
+
+    reason_ctx = {
+        "n": n,
+        "has_feedback": n > 0,
+        "is_factory": is_factory,
+        "owner_count": owner_count or 0,
+        "single_reviewer": single_reviewer,
+        "is_burst": is_burst,
+        "burst_count": burst_count,
+        "burst_window_min": burst_window_min,
+        "compressed_burst": is_burst
+        and burst_window_min < 60
+        and unique_clients < n * 0.6,
+        "cliff": cliff,
+        "punitive_touch": punitive_touch,
+        "independence_pct": (independence or 0) * 100,
+        "confidence_level": level,
+        "unique_clients": unique_clients,
+    }
+    reason_reactions = load_reactions()["dossier"]["confidence_reasons"]
+    reasons = [
+        render(r["text"], **reason_ctx) for r in pick_all(reason_reactions, reason_ctx)
+    ]
 
     span_days = 0
     if feedback:
@@ -248,6 +255,7 @@ def derive_agent(entry: dict[str, Any], indexes: dict[str, Any]) -> dict[str, An
         "collisionEns": ens_name,
         "cliff": cliff,
         "sparse": sparse,
+        "punitiveTouch": punitive_touch,
         "flags": flags,
         "confidence": {"level": level, "reasons": reasons},
         "hasFeedback": n > 0,
@@ -260,124 +268,57 @@ def dossier_callouts(
     *,
     network_label: str = "Ethereum Mainnet",
 ) -> list[dict[str, Any]]:
-    tpl = load_templates()["dossier"]["callouts"]
+    rx = load_reactions()["dossier"]
+    ctx = agent_metrics(agent, network_label=network_label)
     out: list[dict[str, Any]] = []
-    ctx = {
-        "n": agent["n"],
-        "composite": agent["composite"] or 0,
-        "burst_window_min": agent["burstWindowMin"],
-        "unique_clients": agent["uniqueClients"],
-        "owner_count": agent["ownerCount"] or 0,
-        "verified_count": sum(1 for e in agent["ens"] if e.get("verified")),
-        "ens_name": agent.get("collisionEns") or "",
-    }
 
-    if agent["isBurst"] and agent["n"] >= 20:
-        block = tpl["launch_burst"]
+    primary = react_bundle(
+        rx["primary_callout"],
+        ctx,
+        fields=("title", "text"),
+    )
+    if primary:
         out.append(
             {
-                "tone": block["tone"],
-                "icon": block["icon"],
-                "html": f"<b>{block['title']}</b> "
-                + render(block["body_template"], **ctx),
-            }
-        )
-    elif agent["cliff"]:
-        block = tpl["score_cliff"]
-        out.append(
-            {
-                "tone": block["tone"],
-                "icon": block["icon"],
-                "html": f"<b>{block['title']}</b> "
-                + render(block["body_template"], **ctx),
-            }
-        )
-    elif agent["isFactory"]:
-        block = tpl["factory_owner"]
-        out.append(
-            {
-                "tone": block["tone"],
-                "icon": block["icon"],
-                "html": f"<b>{block['title']}</b> "
-                + render(block["body_template"], **ctx),
-            }
-        )
-    elif not agent["hasFeedback"]:
-        block = tpl["no_feedback"]
-        out.append(
-            {
-                "tone": block["tone"],
-                "icon": block["icon"],
-                "html": f"<b>{block['title']}</b> "
-                + render(block["body_template"], network_label=network_label),
-            }
-        )
-    elif agent["confidence"]["level"] == "high":
-        block = tpl["high_confidence"]
-        out.append(
-            {
-                "tone": block["tone"],
-                "icon": block["icon"],
-                "html": f"<b>{block['title']}</b> "
-                + render(block["body_template"], **ctx, span_days=agent["spanDays"]),
+                "tone": primary["tone"],
+                "icon": primary["icon"],
+                "html": f"<b>{primary['title']}</b> {primary['text']}",
+                "reaction": primary.get("id"),
             }
         )
 
-    verified = [e for e in agent["ens"] if e.get("verified")]
-    if agent["isCollision"] and verified:
-        block = tpl["ens_collision_verified"]
+    ens = react_bundle(
+        rx["ens_callout"],
+        ctx,
+        fields=("title", "text"),
+    )
+    if ens and (agent["isCollision"] or ctx["verified_count"] >= 1):
         out.append(
             {
-                "tone": block["tone"],
-                "icon": block["icon"],
-                "html": f"<b>{block['title']}</b> "
-                + render(block["body_template"], **ctx),
-            }
-        )
-    elif verified:
-        block = tpl["ens_verified"]
-        out.append(
-            {
-                "tone": block["tone"],
-                "icon": block["icon"],
-                "html": f"<b>{block['title']}</b> "
-                + render(block["body_template"], **ctx),
+                "tone": ens["tone"],
+                "icon": ens["icon"],
+                "html": f"<b>{ens['title']}</b> {ens['text']}",
+                "reaction": ens.get("id"),
             }
         )
     return out
 
 
 def classify_reviewer(profile: dict[str, Any]) -> dict[str, Any]:
-    tpl = load_templates()["reviewer"]["archetypes"]
-    reviews = int(profile["total_reviews"])
-    agents = int(profile["unique_agents_reviewed"])
-    avg = float(profile["avg_score_given"])
-    span = _span_days(profile.get("first_review"), profile.get("last_review"))
-
-    if reviews >= 500 and agents >= 500 and avg >= 75:
-        key = "generous_sprayer"
-    elif reviews >= 200 and avg <= 15:
-        key = "punitive_cluster"
-    elif reviews >= 100 and avg <= 45:
-        key = "harsh_critic"
-    elif reviews >= 50 and agents >= reviews * 0.95 and avg >= 80:
-        key = "one_each_broad"
-    elif reviews >= 30 and agents <= max(10, reviews // 4):
-        key = "sequential_burst"
-    elif reviews >= 100:
-        key = "prolific_mixed"
-    else:
-        key = "neutral"
-
-    spec = tpl[key]
-    note = render(
-        spec["note_template"],
-        total_reviews=reviews,
-        unique_agents=agents,
-        avg_score=avg,
-        span_days=span,
+    ctx = reviewer_profile_metrics(profile)
+    bundle = react_bundle(
+        load_reactions()["reviewer"]["archetype"],
+        ctx,
+        fields=("label", "text"),
     )
-    return {"label": spec["label"], "tone": spec["tone"], "note": note, "archetype": key}
+    if not bundle:
+        return {"label": "Standard reviewer", "tone": "grey", "note": "", "archetype": "neutral"}
+    return {
+        "label": bundle["label"],
+        "tone": bundle["tone"],
+        "note": bundle["text"],
+        "archetype": bundle.get("id", "neutral"),
+    }
 
 
 def build_reviewer_stories(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -389,11 +330,19 @@ def build_reviewer_stories(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return stories
 
 
+def _signal_copy(signal_type: str, ctx: dict[str, Any], detail: str) -> dict[str, Any]:
+    rx = load_reactions()["sybil"]["signals"][signal_type]
+    copy = react_pair(rx, ctx)
+    why, why_id = react_why(detail, ctx)
+    copy["why"] = why
+    copy["why_reaction"] = why_id
+    return copy
+
+
 def build_signals(raw: dict[str, Any], agents: list[dict[str, Any]], indexes: dict[str, Any]) -> list[dict[str, Any]]:
     tpl = load_templates()["sybil"]["signal_types"]
     cs = raw["corpus_stats"]
     signals: list[dict[str, Any]] = []
-    agent_by_id = {a["id"]: a for a in agents}
 
     for rank, owner in enumerate(raw["owner_concentration"][:3], start=1):
         if owner["agent_count"] < 50:
@@ -401,53 +350,61 @@ def build_signals(raw: dict[str, Any], agents: list[dict[str, Any]], indexes: di
         share = 100 * owner["agent_count"] / cs["agents"]
         key = "factory_owner" if rank == 1 else "factory_owner_secondary"
         spec = tpl[key]
-        title = render(
-            spec["title_template"],
-            owner_share=share,
-            agent_count=owner["agent_count"],
-        )
-        desc = render(
-            spec["desc_template"],
-            agent_count=owner["agent_count"],
-            total_agents=cs["agents"],
-            with_feedback=owner["with_feedback"],
-            rank=rank,
-        )
+        ctx = {
+            "owner_share": share,
+            "agent_count": owner["agent_count"],
+            "total_agents": cs["agents"],
+            "with_feedback": owner["with_feedback"],
+            "rank": rank,
+            "feedback_ratio": owner["with_feedback"] / max(owner["agent_count"], 1),
+            "feedback_ratio_pct": 100 * owner["with_feedback"] / max(owner["agent_count"], 1),
+        }
+        copy = _signal_copy(key, ctx, spec["detail"])
         signals.append(
             _signal(
                 f"sig-factory-{rank}",
                 spec,
                 "high" if rank == 1 else "med",
-                title,
-                desc,
+                copy["title"],
+                copy["desc"],
                 {"kind": "owner", "id": owner["owner"]},
                 [
                     {"k": "Agents minted", "v": f"{owner['agent_count']:,}"},
                     {"k": "With feedback", "v": str(owner["with_feedback"])},
                     {"k": "Share of registry", "v": f"{share:.1f}%"},
                 ],
+                why=copy["why"],
+                why_reaction=copy.get("why_reaction"),
+                title_reaction=copy.get("title_reaction"),
+                desc_reaction=copy.get("desc_reaction"),
             )
         )
 
     for day_row in raw["daily_feedback"]:
         if day_row["feedback"] >= 100 and day_row["avg_score"] <= 5:
             spec = tpl["coordinated_downvote"]
+            ctx = {
+                "day": day_row["day"],
+                "events": day_row["feedback"],
+                "mean_score": day_row["avg_score"],
+            }
+            copy = _signal_copy("coordinated_downvote", ctx, spec["detail"])
             signals.append(
                 _signal(
                     f"sig-downvote-{day_row['day']}",
                     spec,
                     "high",
-                    render(spec["title_template"], day=day_row["day"]),
-                    render(
-                        spec["desc_template"],
-                        events=day_row["feedback"],
-                        mean_score=day_row["avg_score"],
-                    ),
+                    copy["title"],
+                    copy["desc"],
                     {"kind": "day", "id": day_row["day"]},
                     [
                         {"k": "Feedback events", "v": f"{day_row['feedback']:,}"},
                         {"k": "Mean score", "v": f"{day_row['avg_score']:.2f}"},
                     ],
+                    why=copy["why"],
+                    why_reaction=copy.get("why_reaction"),
+                    title_reaction=copy.get("title_reaction"),
+                    desc_reaction=copy.get("desc_reaction"),
                 )
             )
 
@@ -461,18 +418,20 @@ def build_signals(raw: dict[str, Any], agents: list[dict[str, Any]], indexes: di
 
         if reviews >= 200 and avg <= 15 and agents_hit >= 50:
             spec = tpl["punitive_cluster"]
+            ctx = {
+                "agents_hit": agents_hit,
+                "reviews": reviews,
+                "avg_score": avg,
+                "span_label": span_label,
+            }
+            copy = _signal_copy("punitive_cluster", ctx, spec["detail"])
             signals.append(
                 _signal(
                     f"sig-punitive-{client[:10]}",
                     spec,
                     "high",
-                    render(spec["title_template"], agents_hit=agents_hit),
-                    render(
-                        spec["desc_template"],
-                        reviews=reviews,
-                        avg_score=avg,
-                        span_label=span_label,
-                    ),
+                    copy["title"],
+                    copy["desc"],
                     {"kind": "client", "id": profile["client"]},
                     [
                         {"k": "Reviews", "v": f"{reviews:,}"},
@@ -480,27 +439,29 @@ def build_signals(raw: dict[str, Any], agents: list[dict[str, Any]], indexes: di
                         {"k": "Avg given", "v": f"{avg:.2f}"},
                     ],
                     ref_client=profile["client"],
+                    why=copy["why"],
+                    why_reaction=copy.get("why_reaction"),
+                    title_reaction=copy.get("title_reaction"),
+                    desc_reaction=copy.get("desc_reaction"),
                 )
             )
         elif reviews >= 500:
             spec = tpl["reviewer_spray"]
+            ctx = {
+                "reviews": reviews,
+                "agents": agents_hit,
+                "span_days": span,
+                "reviews_per_day": reviews / max(span, 1),
+                "avg_score": avg,
+            }
+            copy = _signal_copy("reviewer_spray", ctx, spec["detail"])
             signals.append(
                 _signal(
                     f"sig-spray-{client[:10]}",
                     spec,
                     "med",
-                    render(
-                        spec["title_template"],
-                        reviews=reviews,
-                        agents=agents_hit,
-                        span_days=span,
-                    ),
-                    render(
-                        spec["desc_template"],
-                        reviews_per_day=reviews / max(span, 1),
-                        agents=agents_hit,
-                        avg_score=avg,
-                    ),
+                    copy["title"],
+                    copy["desc"],
                     {"kind": "client", "id": profile["client"]},
                     [
                         {"k": "Reviews", "v": f"{reviews:,}"},
@@ -508,22 +469,28 @@ def build_signals(raw: dict[str, Any], agents: list[dict[str, Any]], indexes: di
                         {"k": "Avg given", "v": f"{avg:.2f}"},
                     ],
                     ref_client=profile["client"],
+                    why=copy["why"],
+                    why_reaction=copy.get("why_reaction"),
+                    title_reaction=copy.get("title_reaction"),
+                    desc_reaction=copy.get("desc_reaction"),
                 )
             )
         elif reviews >= 100 and avg <= 45:
             spec = tpl["harsh_critic"]
+            ctx = {
+                "agents": agents_hit,
+                "reviews": reviews,
+                "avg_score": avg,
+                "span_label": span_label,
+            }
+            copy = _signal_copy("harsh_critic", ctx, spec["detail"])
             signals.append(
                 _signal(
                     f"sig-harsh-{client[:10]}",
                     spec,
                     "med",
-                    render(spec["title_template"], agents=agents_hit),
-                    render(
-                        spec["desc_template"],
-                        reviews=reviews,
-                        avg_score=avg,
-                        span_label=span_label,
-                    ),
+                    copy["title"],
+                    copy["desc"],
                     {"kind": "client", "id": profile["client"]},
                     [
                         {"k": "Reviews", "v": f"{reviews:,}"},
@@ -531,6 +498,10 @@ def build_signals(raw: dict[str, Any], agents: list[dict[str, Any]], indexes: di
                         {"k": "Avg given", "v": f"{avg:.2f}"},
                     ],
                     ref_client=profile["client"],
+                    why=copy["why"],
+                    why_reaction=copy.get("why_reaction"),
+                    title_reaction=copy.get("title_reaction"),
+                    desc_reaction=copy.get("desc_reaction"),
                 )
             )
 
@@ -538,22 +509,21 @@ def build_signals(raw: dict[str, Any], agents: list[dict[str, Any]], indexes: di
     burst_agents.sort(key=lambda a: (-a["burstCount"], -a["n"]))
     for agent in burst_agents[:8]:
         spec = tpl["launch_burst"]
+        ctx = {
+            "agent_id": agent["id"],
+            "burst_count": agent["burstCount"],
+            "burst_window_min": agent["burstWindowMin"],
+            "n": agent["n"],
+            "composite": agent["composite"] or 0,
+        }
+        copy = _signal_copy("launch_burst", ctx, spec["detail"])
         signals.append(
             _signal(
                 f"sig-burst-{agent['id']}",
                 spec,
                 "high",
-                render(
-                    spec["title_template"],
-                    agent_id=agent["id"],
-                    burst_count=agent["burstCount"],
-                    burst_window_min=agent["burstWindowMin"],
-                ),
-                render(
-                    spec["desc_template"],
-                    composite=agent["composite"] or 0,
-                    n=agent["n"],
-                ),
+                copy["title"],
+                copy["desc"],
                 {"kind": "agent", "id": agent["id"]},
                 [
                     {"k": "Reviews", "v": f"{agent['n']:,}"},
@@ -561,6 +531,10 @@ def build_signals(raw: dict[str, Any], agents: list[dict[str, Any]], indexes: di
                     {"k": "Composite", "v": f"{(agent['composite'] or 0):.1f}"},
                 ],
                 ref_agent=agent["id"],
+                why=copy["why"],
+                why_reaction=copy.get("why_reaction"),
+                title_reaction=copy.get("title_reaction"),
+                desc_reaction=copy.get("desc_reaction"),
             )
         )
 
@@ -568,28 +542,29 @@ def build_signals(raw: dict[str, Any], agents: list[dict[str, Any]], indexes: di
     cliff_agents.sort(key=lambda a: (-(a["composite"] or 0), -a["n"]))
     for agent in cliff_agents[:8]:
         spec = tpl["score_cliff"]
+        ctx = {
+            "agent_id": agent["id"],
+            "composite": agent["composite"] or 0,
+            "n": agent["n"],
+        }
+        copy = _signal_copy("score_cliff", ctx, spec["detail"])
         signals.append(
             _signal(
                 f"sig-cliff-{agent['id']}",
                 spec,
                 "med",
-                render(
-                    spec["title_template"],
-                    agent_id=agent["id"],
-                    composite=agent["composite"] or 0,
-                    n=agent["n"],
-                ),
-                render(
-                    spec["desc_template"],
-                    composite=agent["composite"] or 0,
-                    n=agent["n"],
-                ),
+                copy["title"],
+                copy["desc"],
                 {"kind": "agent", "id": agent["id"]},
                 [
                     {"k": "Composite", "v": f"{(agent['composite'] or 0):.1f}"},
                     {"k": "Reviews", "v": str(agent["n"])},
                 ],
                 ref_agent=agent["id"],
+                why=copy["why"],
+                why_reaction=copy.get("why_reaction"),
+                title_reaction=copy.get("title_reaction"),
+                desc_reaction=copy.get("desc_reaction"),
             )
         )
 
@@ -599,27 +574,30 @@ def build_signals(raw: dict[str, Any], agents: list[dict[str, Any]], indexes: di
         count = len(ids)
         if verified >= 2:
             spec = tpl["ens_collision_verified"]
+            ctx = {
+                "ens_name": collision["ens_name"],
+                "agent_count": count,
+                "agent_ids": ", ".join(str(i) for i in ids),
+                "verified_count": verified,
+            }
+            copy = _signal_copy("ens_collision_verified", ctx, spec["detail"])
             signals.append(
                 _signal(
                     f"sig-ens-verified-{collision['ens_name']}",
                     spec,
                     "med",
-                    render(
-                        spec["title_template"],
-                        ens_name=collision["ens_name"],
-                        agent_count=count,
-                    ),
-                    render(
-                        spec["desc_template"],
-                        ens_name=collision["ens_name"],
-                        agent_ids=", ".join(str(i) for i in ids),
-                    ),
+                    copy["title"],
+                    copy["desc"],
                     {"kind": "ens", "id": collision["ens_name"]},
                     [
                         {"k": "Agents", "v": str(count)},
                         {"k": "Both verified", "v": "Yes"},
                     ],
                     ref_ens=collision["ens_name"],
+                    why=copy["why"],
+                    why_reaction=copy.get("why_reaction"),
+                    title_reaction=copy.get("title_reaction"),
+                    desc_reaction=copy.get("desc_reaction"),
                 )
             )
         elif count >= 3:
@@ -627,28 +605,30 @@ def build_signals(raw: dict[str, Any], agents: list[dict[str, Any]], indexes: di
             verified_label = (
                 f"{verified} verified" if verified else "none verified"
             )
+            ctx = {
+                "ens_name": collision["ens_name"],
+                "agent_count": count,
+                "verified_label": verified_label,
+                "verified_count": verified,
+            }
+            copy = _signal_copy("ens_collision_spray", ctx, spec["detail"])
             signals.append(
                 _signal(
                     f"sig-ens-{collision['ens_name']}",
                     spec,
                     "high" if count >= 5 else "med",
-                    render(
-                        spec["title_template"],
-                        ens_name=collision["ens_name"],
-                        agent_count=count,
-                    ),
-                    render(
-                        spec["desc_template"],
-                        ens_name=collision["ens_name"],
-                        agent_count=count,
-                        verified_label=verified_label,
-                    ),
+                    copy["title"],
+                    copy["desc"],
                     {"kind": "ens", "id": collision["ens_name"]},
                     [
                         {"k": "Agents", "v": str(count)},
                         {"k": "Verified", "v": str(verified)},
                     ],
                     ref_ens=collision["ens_name"],
+                    why=copy["why"],
+                    why_reaction=copy.get("why_reaction"),
+                    title_reaction=copy.get("title_reaction"),
+                    desc_reaction=copy.get("desc_reaction"),
                 )
             )
 
@@ -663,67 +643,72 @@ def build_signals(raw: dict[str, Any], agents: list[dict[str, Any]], indexes: di
         if reg >= max(500, median_reg * 10):
             spec = tpl["mint_spike"]
             share = 100 * reg / cs["agents"]
+            ctx = {"registrations": reg, "day": day_row["day"], "share": share}
+            copy = _signal_copy("mint_spike", ctx, spec["detail"])
             signals.append(
                 _signal(
                     f"sig-mint-{day_row['day']}",
                     spec,
                     "med",
-                    render(
-                        spec["title_template"],
-                        registrations=reg,
-                        day=day_row["day"],
-                    ),
-                    render(
-                        spec["desc_template"],
-                        share=share,
-                    ),
+                    copy["title"],
+                    copy["desc"],
                     {"kind": "day", "id": day_row["day"]},
                     [
                         {"k": "Registrations", "v": f"{reg:,}"},
                         {"k": "Share of registry", "v": f"{share:.1f}%"},
                     ],
+                    why=copy["why"],
+                    why_reaction=copy.get("why_reaction"),
+                    title_reaction=copy.get("title_reaction"),
+                    desc_reaction=copy.get("desc_reaction"),
                 )
             )
 
     for owner in raw["owner_concentration"]:
         if owner["agent_count"] >= 100 and owner["with_feedback"] == 0:
             spec = tpl["ghost_fleet"]
+            ctx = {"agent_count": owner["agent_count"]}
+            copy = _signal_copy("ghost_fleet", ctx, spec["detail"])
             signals.append(
                 _signal(
                     f"sig-ghost-{owner['owner'][:10]}",
                     spec,
                     "med",
-                    render(
-                        spec["title_template"],
-                        agent_count=owner["agent_count"],
-                    ),
-                    render(
-                        spec["desc_template"],
-                        agent_count=owner["agent_count"],
-                    ),
+                    copy["title"],
+                    copy["desc"],
                     {"kind": "owner", "id": owner["owner"]},
                     [
                         {"k": "Agents minted", "v": f"{owner['agent_count']:,}"},
                         {"k": "With feedback", "v": "0"},
                     ],
+                    why=copy["why"],
+                    why_reaction=copy.get("why_reaction"),
+                    title_reaction=copy.get("title_reaction"),
+                    desc_reaction=copy.get("desc_reaction"),
                 )
             )
 
     for row in raw.get("integrity_outliers") or []:
         spec = tpl["data_integrity"]
+        ctx = {"agent_id": row["agent_id"], "score": row["score"]}
+        copy = _signal_copy("data_integrity", ctx, spec["detail"])
         signals.append(
             _signal(
                 f"sig-integrity-{row['agent_id']}",
                 spec,
                 "low",
-                render(spec["title_template"], agent_id=row["agent_id"]),
-                render(spec["desc_template"], score=row["score"]),
+                copy["title"],
+                copy["desc"],
                 {"kind": "agent", "id": row["agent_id"]},
                 [
                     {"k": "Recorded score", "v": str(row["score"])},
                     {"k": "Scale ceiling", "v": "100"},
                 ],
                 ref_agent=row["agent_id"],
+                why=copy["why"],
+                why_reaction=copy.get("why_reaction"),
+                title_reaction=copy.get("title_reaction"),
+                desc_reaction=copy.get("desc_reaction"),
             )
         )
 
@@ -741,6 +726,10 @@ def _signal(
     entity: dict[str, Any],
     metrics: list[dict[str, str]],
     *,
+    why: str = "",
+    why_reaction: str | None = None,
+    title_reaction: str | None = None,
+    desc_reaction: str | None = None,
     ref_agent: int | None = None,
     ref_client: str | None = None,
     ref_ens: str | None = None,
@@ -753,10 +742,17 @@ def _signal(
         "title": title,
         "entity": entity,
         "desc": desc,
+        "why": why,
         "metrics": metrics,
         "rule": spec["rule"],
         "detail": spec["detail"],
     }
+    if why_reaction:
+        out["whyReaction"] = why_reaction
+    if title_reaction:
+        out["titleReaction"] = title_reaction
+    if desc_reaction:
+        out["descReaction"] = desc_reaction
     if ref_agent is not None:
         out["refAgent"] = ref_agent
     if ref_client is not None:
@@ -772,131 +768,79 @@ def build_overview_narratives(
     *,
     net_ctx: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    cs = raw["corpus_stats"]
     tpl = load_templates()["overview"]
-    silent = cs["agents"] - cs["agents_with_feedback"]
-    silent_pct = 100 * silent / cs["agents"] if cs["agents"] else 0
-    top_owner = raw["owner_concentration"][0] if raw["owner_concentration"] else None
-    days = raw["daily_registrations"]
-    date_range = f"{days[0]['day']} – {days[-1]['day']}" if days else "-"
-    spike = max(days, key=lambda d: d["registrations"]) if days else None
-
-    dist = {d["bucket"]: d["count"] for d in raw["score_distribution"]}
-    total_fb = cs["feedback_events"] or 1
-    high_pct = 100 * dist.get("80-100", 0) / total_fb
-    low_count = dist.get("0-19", 0) + dist.get("20-39", 0)
-
-    hero_ctx = {
-        "date_range": date_range,
-        "spike_day": spike["day"] if spike else "",
-        "spike_registrations": spike["registrations"] if spike else 0,
-        "spike_share": 100 * spike["registrations"] / cs["agents"] if spike else 0,
-        "feedback_rate": 100 * cs["agents_with_feedback"] / cs["agents"],
-    }
+    rx = load_reactions()["overview"]
+    ctx = overview_metrics(raw, len(signals))
+    ctx.update(net_ctx or {})
 
     hero: dict[str, dict[str, str]] = {}
     for mode in ("pulse", "score", "log", "cumulative"):
         block = tpl["hero"][mode]
-        insight = block["insight_default"]
-        if mode == "pulse" and spike and spike["registrations"] >= 500:
-            insight = render(block["insight_spike_day"], **hero_ctx)
-        elif mode == "score":
-            worst = min(
-                raw["daily_feedback"],
-                key=lambda d: d.get("avg_score") or 100,
-                default=None,
-            )
-            if worst and worst["feedback"] >= 50:
-                insight = render(
-                    block["insight_downvote_day"],
-                    day=worst["day"],
-                    events=worst["feedback"],
-                    mean_score=worst["avg_score"],
-                )
+        insight, insight_id = react_text(rx["hero"][mode], ctx)
         hero[mode] = {
             "title": block["title"],
-            "subtitle": render(block.get("subtitle", ""), date_range=date_range),
+            "subtitle": render(block.get("subtitle", ""), **ctx),
             "insight": insight,
+            "reaction": insight_id,
         }
 
-    score_callout = (
-        render(
-            tpl["score_distribution"]["callout_high_bucket"]["body_template"],
-            high_bucket_pct=high_pct,
-            low_bucket_count=low_count,
-        )
-        if high_pct >= 50
-        else tpl["score_distribution"]["callout_balanced"]["body_template"]
-    )
+    shape_label, _ = react_text(rx["score_distribution"]["shape_label"], ctx)
+    callout, callout_id = react_text(rx["score_distribution"]["callout"], ctx)
+    teaser_title, teaser_title_id = react_text(rx["sybil_teaser"]["title"], ctx)
+    teaser_sub, teaser_sub_id = react_text(rx["sybil_teaser"]["subtitle"], ctx)
+
+    kpi_rx = rx["kpi"]
+    silent_note, _ = react_text(kpi_rx["silent_majority"], ctx)
+    reviewer_note, _ = react_text(kpi_rx["reviewer_economy"], ctx)
+    factory_note, _ = react_text(kpi_rx["factory_watch"], ctx)
+    ens_note, _ = react_text(kpi_rx["ens_verified"], ctx)
 
     return {
         "page": render_block_safe(
             tpl["page"],
-            indexed_through=cs["generated_at"],
+            indexed_through=ctx["indexed_through"],
             **(net_ctx or {}),
         ),
         "hero": hero,
         "kpi": {
             "silent_majority": {
                 "label": tpl["kpi"]["silent_majority"]["label"],
-                "value": f"{silent_pct:.0f}",
+                "value": f"{ctx['silent_pct']:.0f}",
                 "unit": "%",
-                "note": render(
-                    tpl["kpi"]["silent_majority"]["note_template"],
-                    silent_count=silent,
-                    network_label=(net_ctx or {}).get("network_label", "Ethereum Mainnet"),
-                ),
+                "note": silent_note,
             },
             "reviewer_economy": {
                 "label": tpl["kpi"]["reviewer_economy"]["label"],
-                "value": f"{cs['unique_clients']:,}",
-                "note": render(
-                    tpl["kpi"]["reviewer_economy"]["note_template"],
-                    feedback_events=cs["feedback_events"],
-                    unique_clients=cs["unique_clients"],
-                    network_label=(net_ctx or {}).get("network_label", "Ethereum Mainnet"),
-                ),
+                "value": f"{ctx['unique_clients']:,}",
+                "note": reviewer_note,
             },
             "factory_watch": {
                 "label": tpl["kpi"]["factory_watch"]["label"],
-                "value": f"{top_owner['agent_count']:,}" if top_owner else "-",
-                "note": (
-                    render(
-                        tpl["kpi"]["factory_watch"]["note_template"],
-                        top_owner_share=100 * top_owner["agent_count"] / cs["agents"],
-                    )
-                    if top_owner and top_owner["agent_count"] >= 50
-                    else tpl["kpi"]["factory_watch"]["note_none"]
-                ),
+                "value": f"{ctx['top_owner_count']:,}" if ctx["factory_exists"] else "-",
+                "note": factory_note,
             },
             "ens_verified": {
                 "label": tpl["kpi"]["ens_verified"]["label"],
-                "value": str(cs["ens_verified"]),
-                "unit": f"/ {cs['ens_links']}",
-                "note": render(
-                    tpl["kpi"]["ens_verified"]["note_template"],
-                    ens_verified=cs["ens_verified"],
-                    ens_links=cs["ens_links"],
-                ),
+                "value": str(ctx["ens_verified"]),
+                "unit": f"/ {ctx['ens_links']}",
+                "note": ens_note,
             },
         },
         "score_distribution": {
             "title": tpl["score_distribution"]["title"],
             "subtitle": render(
                 tpl["score_distribution"]["subtitle_template"],
-                feedback_events=cs["feedback_events"],
-                shape_label="skewed toward high scores"
-                if high_pct >= 50
-                else "mixed",
+                feedback_events=ctx["feedback_events"],
+                shape_label=shape_label,
             ),
-            "callout": score_callout,
+            "callout": callout,
+            "reaction": callout_id,
         },
         "sybil_teaser": {
-            "title": render(
-                tpl["sybil_teaser"]["title_template"],
-                signal_count=len(signals),
-            ),
-            "subtitle": tpl["sybil_teaser"]["subtitle"],
+            "title": teaser_title,
+            "subtitle": teaser_sub,
+            "cta": tpl["sybil_teaser"]["cta"],
+            "reaction": teaser_title_id or teaser_sub_id,
         },
     }
 
@@ -976,43 +920,30 @@ def build_identity_narratives(
     net_ctx: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     tpl = load_templates()["identity"]
+    ctx = identity_metrics(raw)
     callouts: list[dict[str, Any]] = []
-    worst = max(
-        raw["ens_name_collisions"],
-        key=lambda c: len(c["agent_ids"].split(",")),
-        default=None,
+
+    collision = react_bundle(
+        load_reactions()["identity"]["collision_callout"],
+        ctx,
+        fields=("text",),
     )
-    if worst:
-        count = len(worst["agent_ids"].split(","))
-        verified = int(worst["verified_count"])
-        if verified >= 2:
-            block = tpl["collision_callout"]["verified_collision"]
-            callouts.append(
-                {
-                    "tone": block["tone"],
-                    "icon": block["icon"],
-                    "html": f"<b>{render(block['body_template'], ens_name=worst['ens_name'], agent_count=count)}</b>",
-                }
-            )
-        elif count >= 3:
-            block = tpl["collision_callout"]["namespace_spray"]
-            callouts.append(
-                {
-                    "tone": block["tone"],
-                    "icon": block["icon"],
-                    "html": render(
-                        block["body_template"],
-                        ens_name=worst["ens_name"],
-                        agent_count=count,
-                        verified_count=verified,
-                    ),
-                }
-            )
-    cc = tpl["cross_chain_callout"]
+    if collision:
+        callouts.append(
+            {
+                "tone": collision["tone"],
+                "icon": collision["icon"],
+                "html": f"<b>{collision['text']}</b>",
+                "reaction": collision.get("id"),
+            }
+        )
+
+    cross_chain, _ = react_text(load_reactions()["identity"]["cross_chain"], ctx)
+
     return {
         "page": render_block_safe(tpl["page"], **(net_ctx or {})),
         "callouts": callouts,
-        "cross_chain_callout": cc["body_template"],
+        "cross_chain_callout": cross_chain,
     }
 
 
@@ -1049,36 +980,48 @@ def build_payload(
     }
 
     independence_examples: list[dict[str, Any]] = []
+    indep_rx = load_reactions()["reviewer"]["independence_callout"]
     for aid in sorted(
         [a["id"] for a in agents if a.get("independence") is not None],
         key=lambda i: agent_by_id[i]["n"],
         reverse=True,
     )[:3]:
         a = agent_by_id[aid]
-        tpl = load_templates()["reviewer"]["independence_callout"]
-        if a["isBurst"] and (a["independence"] or 0) >= 0.8:
-            block = tpl["high_timing_low"]
-        elif (a["independence"] or 0) < 0.6:
-            block = tpl["low_independence"]
-        else:
+        ctx = reviewer_independence_metrics(a)
+        bundle = react_bundle(indep_rx, ctx, fields=("text",))
+        if not bundle:
             continue
         independence_examples.append(
             {
                 "agent_id": aid,
-                "independence_pct": round((a["independence"] or 0) * 100),
+                "independence_pct": round(ctx["independence_pct"]),
                 "callout": {
-                    "tone": block["tone"],
-                    "icon": block["icon"],
-                    "html": render(
-                        block["body_template"],
-                        agent_id=aid,
-                        independence_pct=(a["independence"] or 0) * 100,
-                    ),
+                    "tone": bundle["tone"],
+                    "icon": bundle["icon"],
+                    "html": bundle["text"],
+                    "reaction": bundle.get("id"),
                 },
             }
         )
 
     sybil_tpl = load_templates()["sybil"]
+    sybil_rx = load_reactions()["sybil"]
+    sev_ctx = {"signal_count": len(signals)}
+    severity_notes = {
+        sev: react_text(sybil_rx["severity_notes"][sev], sev_ctx)[0]
+        for sev in ("high", "med", "low")
+    }
+    explorer_block = render_block_safe(load_templates()["explorer"], **net_ctx)
+    explorer_block["empty_results"] = react_text(
+        load_reactions()["explorer"]["empty_results"], net_ctx
+    )[0]
+    corpus_block = render_block_safe(load_templates()["corpus"], **net_ctx)
+    honesty = load_templates()["corpus"]["honesty_callout"]
+    corpus_block["honesty_callout"] = {
+        "tone": honesty["tone"],
+        "icon": honesty["icon"],
+        "body": react_text(load_reactions()["corpus"]["honesty_callout"], net_ctx)[0],
+    }
     return {
         "raw": raw,
         "meta": {
@@ -1110,10 +1053,9 @@ def build_payload(
             },
             "sybil": {
                 "page": render_block_safe(sybil_tpl["page"], **net_ctx),
-                "whyMatters": sybil_tpl["why_matters"],
-                "severityNotes": sybil_tpl["severity_notes"],
+                "severityNotes": severity_notes,
             },
-            "explorer": render_block_safe(load_templates()["explorer"], **net_ctx),
-            "corpus": render_block_safe(load_templates()["corpus"], **net_ctx),
+            "explorer": explorer_block,
+            "corpus": corpus_block,
         },
     }

@@ -1,0 +1,960 @@
+{
+  "overview": {
+    "hero": {
+      "pulse": [
+        {
+          "id": "major_registration_spike",
+          "priority": 90,
+          "when": {
+            "all": [
+              {"field": "spike_registrations", "op": "gte", "value": 500},
+              {"field": "spike_share", "op": "gte", "value": 5}
+            ]
+          },
+          "text": "On {spike_day}, {spike_registrations:,} agents registered ({spike_share:.0f}% of the corpus)."
+        },
+        {
+          "id": "moderate_registration_spike",
+          "priority": 70,
+          "when": {
+            "all": [
+              {"field": "spike_registrations", "op": "gte", "value": 100},
+              {"field": "spike_vs_median", "op": "gte", "value": 5}
+            ]
+          },
+          "text": "Peak day {spike_day} added {spike_registrations:,} agents ({spike_share:.1f}% of corpus), {spike_vs_median:.0f}× the daily median."
+        },
+        {
+          "id": "sparse_feedback_coverage",
+          "priority": 60,
+          "when": {"field": "feedback_rate", "op": "lt", "value": 15},
+          "text": "Only {feedback_rate:.1f}% of agents ({feedback_events:,} events total) have feedback; registrations outpace reputation activity."
+        },
+        {
+          "id": "healthy_feedback_coverage",
+          "priority": 50,
+          "when": {"field": "feedback_rate", "op": "gte", "value": 30},
+          "text": "{feedback_rate:.1f}% of agents have at least one feedback event across {unique_clients} reviewer wallets."
+        },
+        {
+          "id": "pulse_default",
+          "priority": 0,
+          "default": true,
+          "text": "Daily registration volume and feedback events move independently; spikes in mints do not always coincide with review activity."
+        }
+      ],
+      "score": [
+        {
+          "id": "coordinated_downvote_day",
+          "priority": 90,
+          "when": {"field": "coordinated_downvote", "op": "eq", "value": true},
+          "text": "On {worst_day}, {worst_events:,} events averaged {worst_mean_score:.2f}, a coordinated low-score burst."
+        },
+        {
+          "id": "high_volume_low_score",
+          "priority": 70,
+          "when": {"field": "high_volume_low_score", "op": "eq", "value": true},
+          "text": "On {worst_day}, {worst_events:,} events averaged {worst_mean_score:.2f}."
+        },
+        {
+          "id": "score_default",
+          "priority": 0,
+          "default": true,
+          "text": "Mean daily score varies with volume; inspect reviewer overlap before trusting aggregate dips."
+        }
+      ],
+      "log": [
+        {
+          "id": "extreme_spike_concentration",
+          "priority": 80,
+          "when": {
+            "all": [
+              {"field": "spike_vs_median", "op": "gte", "value": 20},
+              {"field": "top3_share", "op": "gte", "value": 50}
+            ]
+          },
+          "text": "Top 3 days account for {top3_share:.0f}% of agents; peak day is {spike_vs_median:.0f}× the median daily mint rate."
+        },
+        {
+          "id": "moderate_concentration",
+          "priority": 50,
+          "when": {"field": "top3_share", "op": "gte", "value": 30},
+          "text": "Top 3 registration days hold {top3_share:.0f}% of all agents across {registration_days} active days."
+        },
+        {
+          "id": "log_default",
+          "priority": 0,
+          "default": true,
+          "text": "Log scale shows mint volume concentrated in a small number of high-activity days."
+        }
+      ],
+      "cumulative": [
+        {
+          "id": "stepwise_growth",
+          "priority": 80,
+          "when": {"field": "top3_share", "op": "gte", "value": 40},
+          "text": "Cumulative curve steps up in bursts: top 3 days added {top3_share:.0f}% of agents."
+        },
+        {
+          "id": "cumulative_default",
+          "priority": 0,
+          "default": true,
+          "text": "Agent count grew in discrete jumps rather than steady daily increments."
+        }
+      ]
+    },
+    "kpi": {
+      "silent_majority": [
+        {
+          "id": "silent_overwhelming",
+          "priority": 80,
+          "when": {"field": "silent_pct", "op": "gte", "value": 85},
+          "text": "{silent_count:,} agents ({silent_pct:.0f}%) have no feedback on {network_label}."
+        },
+        {
+          "id": "silent_majority",
+          "priority": 50,
+          "when": {"field": "silent_pct", "op": "gte", "value": 60},
+          "text": "{silent_count:,} agents ({silent_pct:.0f}%) remain without feedback."
+        },
+        {
+          "id": "silent_minority",
+          "priority": 0,
+          "default": true,
+          "text": "{silent_count:,} agents ({silent_pct:.0f}%) have no feedback; most agents carry at least one event."
+        }
+      ],
+      "reviewer_economy": [
+        {
+          "id": "concentrated_reviewers",
+          "priority": 70,
+          "when": {"field": "events_per_client", "op": "gte", "value": 50},
+          "text": "{feedback_events:,} events from {unique_clients} wallets ({events_per_client:.0f} events per client on average)."
+        },
+        {
+          "id": "reviewer_economy_default",
+          "priority": 0,
+          "default": true,
+          "text": "{feedback_events:,} feedback events from {unique_clients} client wallets on {network_label}."
+        }
+      ],
+      "factory_watch": [
+        {
+          "id": "dominant_factory",
+          "priority": 80,
+          "when": {
+            "all": [
+              {"field": "factory_exists", "op": "eq", "value": true},
+              {"field": "top_owner_share", "op": "gte", "value": 20}
+            ]
+          },
+          "text": "Top factory wallet minted {top_owner_count:,} agents ({top_owner_share:.0f}% of registry)."
+        },
+        {
+          "id": "factory_present",
+          "priority": 50,
+          "when": {"field": "factory_exists", "op": "eq", "value": true},
+          "text": "Largest factory wallet minted {top_owner_count:,} agents ({top_owner_share:.1f}% of registry)."
+        },
+        {
+          "id": "no_factory",
+          "priority": 0,
+          "default": true,
+          "text": "No wallet minted 50+ agents in this slice."
+        }
+      ],
+      "ens_verified": [
+        {
+          "id": "ens_none_linked",
+          "priority": 80,
+          "when": {"field": "ens_links", "op": "eq", "value": 0},
+          "text": "No ENS links in this corpus."
+        },
+        {
+          "id": "ens_low_verification",
+          "priority": 60,
+          "when": {"field": "ens_verified_rate", "op": "lt", "value": 10},
+          "text": "{ens_verified} of {ens_links} ENS links pass ENSIP-25 ({ens_verified_rate:.1f}% verification rate)."
+        },
+        {
+          "id": "ens_solid_verification",
+          "priority": 50,
+          "when": {"field": "ens_verified_rate", "op": "gte", "value": 50},
+          "text": "{ens_verified} of {ens_links} ENS links verified on-chain ({ens_verified_rate:.0f}%)."
+        },
+        {
+          "id": "ens_default",
+          "priority": 0,
+          "default": true,
+          "text": "{ens_verified} of {ens_links} ENS links pass ENSIP-25 verification."
+        }
+      ]
+    },
+    "score_distribution": {
+      "shape_label": [
+        {
+          "id": "shape_high_skew",
+          "priority": 80,
+          "when": {
+            "all": [
+              {"field": "high_bucket_pct", "op": "gte", "value": 50},
+              {"field": "low_bucket_count", "op": "gte", "value": 100}
+            ]
+          },
+          "text": "high scores with a heavy low tail"
+        },
+        {
+          "id": "shape_high_dominant",
+          "priority": 60,
+          "when": {"field": "high_bucket_pct", "op": "gte", "value": 50},
+          "text": "skewed toward high scores"
+        },
+        {
+          "id": "shape_balanced",
+          "priority": 0,
+          "default": true,
+          "text": "mixed distribution"
+        }
+      ],
+      "callout": [
+        {
+          "id": "callout_high_and_low",
+          "priority": 80,
+          "when": {
+            "all": [
+              {"field": "high_bucket_pct", "op": "gte", "value": 50},
+              {"field": "low_bucket_count", "op": "gte", "value": 50}
+            ]
+          },
+          "text": "{high_bucket_pct:.0f}% of scores are 80–100; {low_bucket_count:,} events fall below 40."
+        },
+        {
+          "id": "callout_high_only",
+          "priority": 60,
+          "when": {"field": "high_bucket_pct", "op": "gte", "value": 50},
+          "text": "{high_bucket_pct:.0f}% of scores sit in the 80–100 bucket."
+        },
+        {
+          "id": "callout_low_tail",
+          "priority": 50,
+          "when": {"field": "low_bucket_count", "op": "gte", "value": 200},
+          "text": "{low_bucket_count:,} events score below 40 despite an otherwise mixed distribution."
+        },
+        {
+          "id": "callout_balanced",
+          "priority": 0,
+          "default": true,
+          "text": "Scores are spread across buckets without one dominant range."
+        }
+      ]
+    },
+    "sybil_teaser": {
+      "title": [
+        {
+          "id": "signals_none",
+          "priority": 80,
+          "when": {"field": "signal_count", "op": "eq", "value": 0},
+          "text": "No anomalies flagged"
+        },
+        {
+          "id": "signals_few",
+          "priority": 50,
+          "when": {"field": "signal_count", "op": "lte", "value": 5},
+          "text": "{signal_count} anomalies to review"
+        },
+        {
+          "id": "signals_many",
+          "priority": 0,
+          "default": true,
+          "text": "{signal_count} anomalies need review"
+        }
+      ],
+      "subtitle": [
+        {
+          "id": "teaser_none",
+          "priority": 80,
+          "when": {"field": "signal_count", "op": "eq", "value": 0},
+          "text": "No factory, burst, collision, or coordinated-review flags in this corpus slice."
+        },
+        {
+          "id": "teaser_default",
+          "priority": 0,
+          "default": true,
+          "text": "Factory wallets, launch bursts, ENS collisions, and coordinated reviews, sorted by severity."
+        }
+      ]
+    }
+  },
+  "identity": {
+    "collision_callout": [
+      {
+        "id": "verified_collision",
+        "priority": 90,
+        "when": {
+          "all": [
+            {"field": "verified_count", "op": "gte", "value": 2},
+            {"field": "collision_count", "op": "gte", "value": 2}
+          ]
+        },
+        "tone": "red",
+        "icon": "warn",
+        "text": "{ens_name} verified by {agent_count} agents."
+      },
+      {
+        "id": "namespace_spray",
+        "priority": 70,
+        "when": {"field": "collision_count", "op": "gte", "value": 3},
+        "tone": "red",
+        "icon": "warn",
+        "text": "{ens_name} → {agent_count} agents, {verified_count} verified."
+      },
+      {
+        "id": "minor_collision",
+        "priority": 40,
+        "when": {"field": "collision_count", "op": "gte", "value": 2},
+        "tone": "amber",
+        "icon": "warn",
+        "text": "{ens_name} shared by {agent_count} agents ({verified_count} verified)."
+      }
+    ],
+    "cross_chain": [
+      {
+        "id": "cross_chain_active",
+        "priority": 50,
+        "when": {"field": "cross_registrations", "op": "gte", "value": 1},
+        "text": "{cross_registrations:,} cross-chain registration refs parsed from token_uri JSON. Scores stay per-chain."
+      },
+      {
+        "id": "cross_chain_none",
+        "priority": 0,
+        "default": true,
+        "text": "No cross-chain registration refs in this corpus slice."
+      }
+    ]
+  },
+  "dossier": {
+    "primary_callout": [
+      {
+        "id": "launch_burst",
+        "priority": 90,
+        "when": {
+          "all": [
+            {"field": "is_burst", "op": "eq", "value": true},
+            {"field": "n", "op": "gte", "value": 20}
+          ]
+        },
+        "tone": "amber",
+        "icon": "bolt",
+        "title": "Launch burst detected.",
+        "text": "{n} reviews within {burst_window_min} minutes of first feedback from {unique_clients} wallets."
+      },
+      {
+        "id": "score_cliff",
+        "priority": 85,
+        "when": {"field": "cliff", "op": "eq", "value": true},
+        "tone": "amber",
+        "icon": "flag",
+        "title": "High score on a thin sample.",
+        "text": "{composite:.1f} composite from {n} reviews."
+      },
+      {
+        "id": "factory_owner",
+        "priority": 80,
+        "when": {"field": "is_factory", "op": "eq", "value": true},
+        "tone": "red",
+        "icon": "factory",
+        "title": "Factory-owned agent.",
+        "text": "Owner minted {owner_count:,} agents."
+      },
+      {
+        "id": "no_feedback",
+        "priority": 70,
+        "when": {"field": "has_feedback", "op": "eq", "value": false},
+        "tone": "blue",
+        "icon": "ghost",
+        "title": "No reputation signal.",
+        "text": "Registered on {network_label} with no feedback events."
+      },
+      {
+        "id": "high_confidence",
+        "priority": 60,
+        "when": {"field": "confidence_level", "op": "eq", "value": "high"},
+        "tone": "green",
+        "icon": "info",
+        "title": "Stable sample.",
+        "text": "{n} reviews from {unique_clients} mostly independent wallets over {span_days} days."
+      },
+      {
+        "id": "low_confidence",
+        "priority": 50,
+        "when": {"field": "confidence_level", "op": "eq", "value": "low"},
+        "tone": "amber",
+        "icon": "warn",
+        "title": "Low confidence sample.",
+        "text": "{n} reviews from {unique_clients} wallets; factory, burst, or reviewer concentration flags apply."
+      },
+      {
+        "id": "medium_confidence",
+        "priority": 40,
+        "when": {"field": "confidence_level", "op": "eq", "value": "med"},
+        "tone": "blue",
+        "icon": "info",
+        "title": "Mixed signals.",
+        "text": "{n} reviews with moderate independence ({independence_pct:.0f}% of reviewers are low-breadth)."
+      }
+    ],
+    "ens_callout": [
+      {
+        "id": "ens_collision_verified",
+        "priority": 90,
+        "when": {
+          "all": [
+            {"field": "is_collision", "op": "eq", "value": true},
+            {"field": "verified_count", "op": "gte", "value": 1}
+          ]
+        },
+        "tone": "red",
+        "icon": "ens",
+        "title": "Verified ENS collision.",
+        "text": "Shares {ens_name} with other verified agents."
+      },
+      {
+        "id": "ens_verified",
+        "priority": 50,
+        "when": {"field": "verified_count", "op": "gte", "value": 1},
+        "tone": "green",
+        "icon": "verified",
+        "title": "ENSIP-25 verified.",
+        "text": "{verified_count} on-chain verified name(s)."
+      }
+    ],
+    "confidence_reasons": [
+      {
+        "id": "no_feedback",
+        "priority": 100,
+        "when": {"field": "has_feedback", "op": "eq", "value": false},
+        "text": "No reputation events recorded"
+      },
+      {
+        "id": "factory_owner",
+        "priority": 90,
+        "when": {"field": "is_factory", "op": "eq", "value": true},
+        "text": "Owner operates a mint factory ({owner_count:,} agents)"
+      },
+      {
+        "id": "single_reviewer",
+        "priority": 85,
+        "when": {"field": "single_reviewer", "op": "eq", "value": true},
+        "text": "Reviews concentrated in few wallets"
+      },
+      {
+        "id": "small_sample",
+        "priority": 80,
+        "when": {"field": "n", "op": "lt", "value": 5},
+        "text": "Very small sample ({n} reviews)"
+      },
+      {
+        "id": "compressed_window",
+        "priority": 75,
+        "when": {"field": "compressed_burst", "op": "eq", "value": true},
+        "text": "Reviews compressed into <1h window"
+      },
+      {
+        "id": "burst_timing",
+        "priority": 70,
+        "when": {"field": "is_burst", "op": "eq", "value": true},
+        "text": "Timing correlation high: {burst_count} reviews in {burst_window_min} min"
+      },
+      {
+        "id": "perfect_thin",
+        "priority": 65,
+        "when": {"field": "cliff", "op": "eq", "value": true},
+        "text": "High score on a thin sample ({n} reviews)"
+      },
+      {
+        "id": "punitive_touch",
+        "priority": 60,
+        "when": {"field": "punitive_touch", "op": "eq", "value": true},
+        "text": "Includes scores from a punitive cluster"
+      },
+      {
+        "id": "moderate_independence",
+        "priority": 40,
+        "when": {
+          "all": [
+            {"field": "has_feedback", "op": "eq", "value": true},
+            {"field": "independence_pct", "op": "lt", "value": 85}
+          ]
+        },
+        "text": "Moderate reviewer independence"
+      },
+      {
+        "id": "strong_sample",
+        "priority": 30,
+        "when": {
+          "all": [
+            {"field": "has_feedback", "op": "eq", "value": true},
+            {"field": "confidence_level", "op": "eq", "value": "high"}
+          ]
+        },
+        "text": "{n} reviews from {unique_clients} mostly independent wallets"
+      },
+      {
+        "id": "independence_pct",
+        "priority": 10,
+        "when": {"field": "has_feedback", "op": "eq", "value": true},
+        "text": "Reviewer independence {independence_pct:.0f}%"
+      }
+    ],
+    "flags": {
+      "burst": [
+        {
+          "id": "burst_extreme",
+          "priority": 80,
+          "when": {"field": "burst_count", "op": "gte", "value": 50},
+          "text": "{burst_count} reviews within {burst_window_min} min of first feedback"
+        },
+        {
+          "id": "burst_default",
+          "priority": 0,
+          "default": true,
+          "text": "{burst_count} reviews within {burst_window_min} min of first feedback"
+        }
+      ],
+      "factory": [
+        {
+          "id": "factory_large",
+          "priority": 80,
+          "when": {"field": "owner_count", "op": "gte", "value": 200},
+          "text": "Owner minted {owner_count:,} agents (large factory)"
+        },
+        {
+          "id": "factory_default",
+          "priority": 0,
+          "default": true,
+          "text": "Owner minted {owner_count:,} agents"
+        }
+      ],
+      "collision": [
+        {
+          "id": "collision_default",
+          "priority": 0,
+          "default": true,
+          "text": "Shares {ens_name} with another agent"
+        }
+      ],
+      "single": [
+        {
+          "id": "single_reviewer",
+          "priority": 0,
+          "default": true,
+          "text": "{unique_clients} unique wallets across {n} reviews"
+        }
+      ],
+      "cliff": [
+        {
+          "id": "cliff_perfect",
+          "priority": 80,
+          "when": {"field": "composite", "op": "gte", "value": 99.9},
+          "text": "{composite:.1f} from {n} reviews (near-perfect on thin sample)"
+        },
+        {
+          "id": "cliff_default",
+          "priority": 0,
+          "default": true,
+          "text": "{composite:.1f} from only {n} reviews"
+        }
+      ],
+      "punitive": [
+        {
+          "id": "punitive_default",
+          "priority": 0,
+          "default": true,
+          "text": "Reviewed by a known down-scoring cluster"
+        }
+      ],
+      "sparse": [
+        {
+          "id": "sparse_default",
+          "priority": 0,
+          "default": true,
+          "text": "Only {n} reviews"
+        }
+      ],
+      "ghost": [
+        {
+          "id": "ghost_default",
+          "priority": 0,
+          "default": true,
+          "text": "Zero reputation events recorded"
+        }
+      ]
+    }
+  },
+  "reviewer": {
+    "archetype": [
+      {
+        "id": "generous_sprayer",
+        "priority": 90,
+        "when": {
+          "all": [
+            {"field": "total_reviews", "op": "gte", "value": 500},
+            {"field": "unique_agents", "op": "gte", "value": 500},
+            {"field": "avg_score", "op": "gte", "value": 75}
+          ]
+        },
+        "label": "Generous sprayer",
+        "tone": "amber",
+        "text": "{total_reviews:,} reviews to {unique_agents:,} agents in {span_days} days."
+      },
+      {
+        "id": "punitive_cluster",
+        "priority": 85,
+        "when": {
+          "all": [
+            {"field": "total_reviews", "op": "gte", "value": 200},
+            {"field": "avg_score", "op": "lte", "value": 15}
+          ]
+        },
+        "label": "Punitive cluster",
+        "tone": "red",
+        "text": "{total_reviews:,} reviews at avg {avg_score:.1f} over {span_days} days."
+      },
+      {
+        "id": "harsh_critic",
+        "priority": 80,
+        "when": {
+          "all": [
+            {"field": "total_reviews", "op": "gte", "value": 100},
+            {"field": "avg_score", "op": "lte", "value": 45}
+          ]
+        },
+        "label": "Harsh-critic bot",
+        "tone": "amber",
+        "text": "{total_reviews:,} reviews averaging {avg_score:.1f}."
+      },
+      {
+        "id": "one_each_broad",
+        "priority": 75,
+        "when": {
+          "all": [
+            {"field": "total_reviews", "op": "gte", "value": 50},
+            {"field": "agents_per_review", "op": "gte", "value": 0.95},
+            {"field": "avg_score", "op": "gte", "value": 80}
+          ]
+        },
+        "label": "One-each broad",
+        "tone": "grey",
+        "text": "{total_reviews:,} reviews to {unique_agents:,} distinct agents."
+      },
+      {
+        "id": "sequential_burst",
+        "priority": 70,
+        "when": {
+          "all": [
+            {"field": "total_reviews", "op": "gte", "value": 30},
+            {"field": "sequential_burst", "op": "eq", "value": true}
+          ]
+        },
+        "label": "Sequential burst",
+        "tone": "amber",
+        "text": "{total_reviews:,} reviews concentrated on consecutive agent IDs."
+      },
+      {
+        "id": "prolific_mixed",
+        "priority": 60,
+        "when": {"field": "total_reviews", "op": "gte", "value": 100},
+        "label": "Prolific mixed",
+        "tone": "grey",
+        "text": "{total_reviews:,} reviews, avg {avg_score:.1f}, broad coverage with mixed scores."
+      },
+      {
+        "id": "neutral",
+        "priority": 0,
+        "default": true,
+        "label": "Standard reviewer",
+        "tone": "grey",
+        "text": "{total_reviews:,} reviews across {unique_agents:,} agents at avg {avg_score:.1f}."
+      }
+    ],
+    "independence_callout": [
+      {
+        "id": "high_timing_low",
+        "priority": 80,
+        "when": {
+          "all": [
+            {"field": "is_burst", "op": "eq", "value": true},
+            {"field": "high_independence", "op": "eq", "value": true}
+          ]
+        },
+        "tone": "blue",
+        "icon": "info",
+        "text": "Agent {agent_id}: {independence_pct:.0f}% of reviewers have reviewed ≤3 agents total. Many distinct wallets, but reviews cluster in time."
+      },
+      {
+        "id": "low_independence",
+        "priority": 70,
+        "when": {"field": "low_independence", "op": "eq", "value": true},
+        "tone": "amber",
+        "icon": "warn",
+        "text": "Agent {agent_id}: {independence_pct:.0f}% of reviewers have reviewed ≤3 agents total."
+      }
+    ]
+  },
+  "sybil": {
+    "severity_notes": {
+      "high": [
+        {"id": "sev_high_busy", "priority": 50, "when": {"field": "signal_count", "op": "gte", "value": 10}, "text": "High priority ({signal_count} open signals)"},
+        {"id": "sev_high_default", "priority": 0, "default": true, "text": "High priority"}
+      ],
+      "med": [
+        {"id": "sev_med_default", "priority": 0, "default": true, "text": "Review when relevant"}
+      ],
+      "low": [
+        {"id": "sev_low_default", "priority": 0, "default": true, "text": "Informational"}
+      ]
+    },
+    "why_matters": {
+      "factory": [
+        {
+          "id": "why_factory_dominant",
+          "priority": 80,
+          "when": {"field": "owner_share", "op": "gte", "value": 20},
+          "text": "This wallet minted {owner_share:.0f}% of the registry but only {with_feedback} agents have feedback."
+        },
+        {
+          "id": "why_factory_default",
+          "priority": 0,
+          "default": true,
+          "text": "High mint volume from one owner can inflate registry counts without corresponding feedback."
+        }
+      ],
+      "downvote": [
+        {
+          "id": "why_downvote_severe",
+          "priority": 80,
+          "when": {"field": "mean_score", "op": "lte", "value": 2},
+          "text": "{events:,} events on {day} averaged {mean_score:.2f}, suggesting coordinated down-scoring rather than organic reviews."
+        },
+        {
+          "id": "why_downvote_default",
+          "priority": 0,
+          "default": true,
+          "text": "A single day with many low scores may indicate coordinated activity rather than individual reviews."
+        }
+      ],
+      "reviewer": [
+        {
+          "id": "why_reviewer_punitive",
+          "priority": 80,
+          "when": {"field": "avg_score", "op": "lte", "value": 15},
+          "text": "This client averaged {avg_score:.1f} across {agents_hit} agents, dragging composites toward zero."
+        },
+        {
+          "id": "why_reviewer_default",
+          "priority": 0,
+          "default": true,
+          "text": "Reviewers that touch hundreds of agents with similar scores behave unlike typical users."
+        }
+      ],
+      "agent": [
+        {
+          "id": "why_agent_burst",
+          "priority": 80,
+          "when": {"field": "burst_count", "op": "gte", "value": 50},
+          "text": "{burst_count} reviews landed within {burst_window_min} minutes of launch; timing can inflate composites."
+        },
+        {
+          "id": "why_agent_default",
+          "priority": 0,
+          "default": true,
+          "text": "Composite scores depend on review count, timing, and reviewer overlap."
+        }
+      ],
+      "collision": [
+        {
+          "id": "why_collision_verified",
+          "priority": 80,
+          "when": {"field": "verified_count", "op": "gte", "value": 2},
+          "text": "{agent_count} agents verified the same ENS name ({ens_name}); on-chain proof does not imply uniqueness."
+        },
+        {
+          "id": "why_collision_default",
+          "priority": 0,
+          "default": true,
+          "text": "Multiple agents sharing one ENS name breaks one-name-one-agent assumptions."
+        }
+      ],
+      "mintspike": [
+        {
+          "id": "why_mintspike_major",
+          "priority": 80,
+          "when": {"field": "share", "op": "gte", "value": 15},
+          "text": "{share:.1f}% of the corpus minted on {day}; spikes this large often trace to factory wallets."
+        },
+        {
+          "id": "why_mintspike_default",
+          "priority": 0,
+          "default": true,
+          "text": "Large single-day mint spikes often correlate with factory wallets."
+        }
+      ],
+      "ghost": [
+        {
+          "id": "why_ghost_large",
+          "priority": 80,
+          "when": {"field": "agent_count", "op": "gte", "value": 500},
+          "text": "{agent_count:,} agents from one owner with zero feedback: registry padding without reputation activity."
+        },
+        {
+          "id": "why_ghost_default",
+          "priority": 0,
+          "default": true,
+          "text": "Agents with zero feedback carry no reputation signal."
+        }
+      ],
+      "integrity": [
+        {
+          "id": "why_integrity_high",
+          "priority": 80,
+          "when": {"field": "score", "op": "gt", "value": 100},
+          "text": "Score {score} exceeds the 0–100 scale; excluded from aggregates pending ingest review."
+        },
+        {
+          "id": "why_integrity_default",
+          "priority": 0,
+          "default": true,
+          "text": "Out-of-range scores are excluded from aggregates and flagged for ingest review."
+        }
+      ]
+    },
+    "signals": {
+      "factory_owner": {
+        "title": [
+          {"id": "fo_title_dominant", "priority": 80, "when": {"field": "owner_share", "op": "gte", "value": 20}, "text": "One wallet controls {owner_share:.0f}% of the registry"},
+          {"id": "fo_title_default", "priority": 0, "default": true, "text": "Factory wallet minted {agent_count:,} agents ({owner_share:.1f}% of registry)"}
+        ],
+        "desc": [
+          {"id": "fo_desc_low_feedback", "priority": 80, "when": {"field": "feedback_ratio", "op": "lt", "value": 0.05}, "text": "Minted {agent_count:,} of {total_agents:,} agents; only {with_feedback} ({feedback_ratio_pct:.1f}%) have any feedback."},
+          {"id": "fo_desc_default", "priority": 0, "default": true, "text": "A single owner minted {agent_count:,} of {total_agents:,} agents; {with_feedback} have feedback."}
+        ]
+      },
+      "factory_owner_secondary": {
+        "title": [
+          {"id": "fos_title_default", "priority": 0, "default": true, "text": "Factory wallet #{rank} minted {agent_count:,} agents"}
+        ],
+        "desc": [
+          {"id": "fos_desc_default", "priority": 0, "default": true, "text": "Owner #{rank} controls {agent_count:,} agents ({with_feedback} with feedback). Cross-check against mint spikes."}
+        ]
+      },
+      "coordinated_downvote": {
+        "title": [
+          {"id": "cd_title_default", "priority": 0, "default": true, "text": "Mass negative-feedback event on {day}"}
+        ],
+        "desc": [
+          {"id": "cd_desc_severe", "priority": 80, "when": {"field": "mean_score", "op": "lte", "value": 2}, "text": "{events:,} events in one day at mean score {mean_score:.2f} (near-zero cluster)."},
+          {"id": "cd_desc_default", "priority": 0, "default": true, "text": "{events:,} feedback events in one day at mean score {mean_score:.2f}."}
+        ]
+      },
+      "punitive_cluster": {
+        "title": [
+          {"id": "pc_title_default", "priority": 0, "default": true, "text": "Reviewer floods {agents_hit} agents with near-zero scores"}
+        ],
+        "desc": [
+          {"id": "pc_desc_default", "priority": 0, "default": true, "text": "{reviews:,} reviews at average {avg_score:.2f}, active {span_label}."}
+        ]
+      },
+      "reviewer_spray": {
+        "title": [
+          {"id": "rs_title_default", "priority": 0, "default": true, "text": "{reviews:,} reviews across {agents:,} agents in {span_days} days"}
+        ],
+        "desc": [
+          {"id": "rs_desc_high_rate", "priority": 80, "when": {"field": "reviews_per_day", "op": "gte", "value": 100}, "text": "≈{reviews_per_day:.0f} reviews/day to {agents:,} agents at avg {avg_score:.1f} (automated breadth)."},
+          {"id": "rs_desc_default", "priority": 0, "default": true, "text": "≈{reviews_per_day:.0f} reviews/day to {agents:,} agents at avg {avg_score:.1f}."}
+        ]
+      },
+      "harsh_critic": {
+        "title": [
+          {"id": "hc_title_default", "priority": 0, "default": true, "text": "Systematic low-scorer touched {agents:,} agents"}
+        ],
+        "desc": [
+          {"id": "hc_desc_default", "priority": 0, "default": true, "text": "{reviews:,} reviews averaging {avg_score:.1f} over {span_label}."}
+        ]
+      },
+      "launch_burst": {
+        "title": [
+          {"id": "lb_title_extreme", "priority": 80, "when": {"field": "burst_count", "op": "gte", "value": 50}, "text": "Agent {agent_id}: {burst_count} reviews in the first {burst_window_min} minutes"},
+          {"id": "lb_title_default", "priority": 0, "default": true, "text": "Agent {agent_id}: {burst_count} reviews in the first {burst_window_min} minutes"}
+        ],
+        "desc": [
+          {"id": "lb_desc_high_composite", "priority": 80, "when": {"field": "composite", "op": "gte", "value": 95}, "text": "{n} reviews in {burst_window_min} min produced composite {composite:.1f}."},
+          {"id": "lb_desc_default", "priority": 0, "default": true, "text": "{n} reviews in the first {burst_window_min} minutes; composite {composite:.1f}."}
+        ]
+      },
+      "ens_collision_spray": {
+        "title": [
+          {"id": "ecs_title_large", "priority": 80, "when": {"field": "agent_count", "op": "gte", "value": 5}, "text": "{ens_name} claimed by {agent_count} agents (namespace spray)"},
+          {"id": "ecs_title_default", "priority": 0, "default": true, "text": "{ens_name} claimed by {agent_count} different agents"}
+        ],
+        "desc": [
+          {"id": "ecs_desc_default", "priority": 0, "default": true, "text": "{agent_count} agents claim {ens_name} ({verified_label})."}
+        ]
+      },
+      "ens_collision_verified": {
+        "title": [
+          {"id": "ecv_title_default", "priority": 0, "default": true, "text": "{ens_name} verified by {agent_count} agents at once"}
+        ],
+        "desc": [
+          {"id": "ecv_desc_default", "priority": 0, "default": true, "text": "Agents {agent_ids} both pass ENSIP-25 for {ens_name}."}
+        ]
+      },
+      "mint_spike": {
+        "title": [
+          {"id": "ms_title_default", "priority": 0, "default": true, "text": "{registrations:,} agents minted on {day}"}
+        ],
+        "desc": [
+          {"id": "ms_desc_major", "priority": 80, "when": {"field": "share", "op": "gte", "value": 15}, "text": "One day produced {share:.1f}% of all agents in this corpus (major mint spike)."},
+          {"id": "ms_desc_default", "priority": 0, "default": true, "text": "One day produced {share:.1f}% of all agents in this corpus."}
+        ]
+      },
+      "score_cliff": {
+        "title": [
+          {"id": "sc_title_perfect", "priority": 80, "when": {"field": "composite", "op": "gte", "value": 99.9}, "text": "Agent {agent_id} holds {composite:.1f} on only {n} reviews"},
+          {"id": "sc_title_default", "priority": 0, "default": true, "text": "Agent {agent_id} holds a {composite:.1f} composite on {n} reviews"}
+        ],
+        "desc": [
+          {"id": "sc_desc_default", "priority": 0, "default": true, "text": "Composite {composite:.1f} from {n} reviews."}
+        ]
+      },
+      "ghost_fleet": {
+        "title": [
+          {"id": "gf_title_large", "priority": 80, "when": {"field": "agent_count", "op": "gte", "value": 500}, "text": "{agent_count:,} agents minted, zero reputation events (ghost fleet)"},
+          {"id": "gf_title_default", "priority": 0, "default": true, "text": "{agent_count:,} agents minted, zero reputation events"}
+        ],
+        "desc": [
+          {"id": "gf_desc_default", "priority": 0, "default": true, "text": "{agent_count:,} registered agents with zero feedback events."}
+        ]
+      },
+      "data_integrity": {
+        "title": [
+          {"id": "di_title_default", "priority": 0, "default": true, "text": "Out-of-range score on agent {agent_id}"}
+        ],
+        "desc": [
+          {"id": "di_desc_high", "priority": 80, "when": {"field": "score", "op": "gt", "value": 100}, "text": "Feedback score {score} exceeds the 0–100 scale."},
+          {"id": "di_desc_low", "priority": 70, "when": {"field": "score", "op": "lt", "value": 0}, "text": "Feedback score {score} is below the 0–100 scale."},
+          {"id": "di_desc_default", "priority": 0, "default": true, "text": "A feedback record carries score {score} on a 0–100 scale. Surfaced as an ingest sanity flag."}
+        ]
+      }
+    }
+  },
+  "explorer": {
+    "empty_results": [
+      {"id": "explorer_empty_default", "priority": 0, "default": true, "text": "No matching agents in this network corpus."}
+    ]
+  },
+  "corpus": {
+    "honesty_callout": [
+      {"id": "corpus_fresh", "priority": 0, "default": true, "text": "Batch index updated after ingest runs. Rebuild with agentindex-build after sync to refresh this dashboard."}
+    ]
+  }
+}

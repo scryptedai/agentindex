@@ -51,14 +51,13 @@ function SignalRow({sig, open, onToggle, watched, onWatch}){
         </div>
         <div>
           <div className="faint" style={{fontSize:11.5,fontWeight:500,letterSpacing:.3,textTransform:'uppercase',marginBottom:8}}>Why it matters</div>
-          <div className="muted" style={{fontSize:13,lineHeight:1.6}}>{WHY[sig.detail]||'Surfaced as evidence for analyst review, never auto-penalised.'}</div>
+          <div className="muted" style={{fontSize:13,lineHeight:1.6}}>{sig.why || 'Surfaced as evidence for analyst review, never auto-penalised.'}</div>
           {deep&&<div className="mt16"><Btn variant="out" icon="arrowr" onClick={deep[2]}>{deep[0]}</Btn></div>}
         </div>
       </div>
     </div>}
   </div>);
 }
-const WHY = AX.sybilNarr?.whyMatters || {};
 
 function ScreenSybil(){
   const sigs = AX.signals.slice().sort((a,b)=> AX.sevWeight[a.sev]-AX.sevWeight[b.sev]);

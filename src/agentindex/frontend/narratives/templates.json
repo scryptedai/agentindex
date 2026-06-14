@@ -7,74 +7,32 @@
     "hero": {
       "pulse": {
         "title": "Registrations vs. feedback",
-        "subtitle": "Daily, {date_range} · dashed markers flag coordinated events",
-        "insight_default": "Registration spikes often do not coincide with feedback volume.",
-        "insight_spike_day": "On {spike_day}, {spike_registrations:,} agents registered ({spike_share:.0f}% of the corpus).",
-        "insight_feedback_lag": "{feedback_rate:.1f}% of agents have at least one feedback event."
+        "subtitle": "Daily, {date_range} · dashed markers flag coordinated events"
       },
       "score": {
         "title": "Feedback volume vs. daily mean score",
-        "subtitle": "Daily, {date_range}",
-        "insight_default": "High feedback volume sometimes coincides with unusually low mean scores.",
-        "insight_downvote_day": "On {day}, {events:,} events averaged {mean_score:.2f}."
+        "subtitle": "Daily, {date_range}"
       },
       "log": {
         "title": "Registrations (log): long tail vs. spikes",
-        "subtitle": "Daily, {date_range}",
-        "insight_default": "A log axis exposes how few days carry the registry: a handful of mint events dominate."
+        "subtitle": "Daily, {date_range}"
       },
       "cumulative": {
         "title": "Cumulative agent growth",
-        "subtitle": "Daily, {date_range}",
-        "insight_default": "Most agents arrived in a few large registration bursts."
+        "subtitle": "Daily, {date_range}"
       }
     },
     "kpi": {
-      "silent_majority": {
-        "label": "Silent majority",
-        "label_icon": "ghost",
-        "value_template": "{silent_pct:.0f}",
-        "unit": "%",
-        "note_template": "{silent_count:,} agents have no feedback on {network_label}."
-      },
-      "reviewer_economy": {
-        "label": "Reviewer economy",
-        "label_icon": "reviewer",
-        "value_key": "unique_clients",
-        "note_template": "{feedback_events:,} feedback events from {unique_clients} client wallets on {network_label}."
-      },
-      "factory_watch": {
-        "label": "Factory watch",
-        "label_icon": "factory",
-        "value_key": "top_owner_agents",
-        "note_template": "agents from one owner, {top_owner_share:.0f}% of the registry minted by a single wallet.",
-        "note_none": "No wallet minted 50+ agents in this slice."
-      },
-      "ens_verified": {
-        "label": "ENS verified",
-        "label_icon": "verified",
-        "value_key": "ens_verified",
-        "unit_template": "/ {ens_links}",
-        "note_template": "{ens_verified} of {ens_links} ENS links pass ENSIP-25 verification."
-      }
+      "silent_majority": {"label": "Silent majority", "label_icon": "ghost", "value_template": "{silent_pct:.0f}", "unit": "%"},
+      "reviewer_economy": {"label": "Reviewer economy", "label_icon": "reviewer", "value_key": "unique_clients"},
+      "factory_watch": {"label": "Factory watch", "label_icon": "factory", "value_key": "top_owner_agents"},
+      "ens_verified": {"label": "ENS verified", "label_icon": "verified", "value_key": "ens_verified", "unit_template": "/ {ens_links}"}
     },
     "score_distribution": {
       "title": "Score distribution",
-      "subtitle_template": "{feedback_events:,} feedback events, {shape_label}",
-      "callout_high_bucket": {
-        "tone": "amber",
-        "icon": "warn",
-        "body_template": "{high_bucket_pct:.0f}% of scores are 80–100; {low_bucket_count:,} events fall below 40."
-      },
-      "callout_balanced": {
-        "tone": "blue",
-        "icon": "info",
-        "body_template": "Scores are spread across buckets without one dominant range."
-      }
+      "subtitle_template": "{feedback_events:,} feedback events, {shape_label}"
     },
     "sybil_teaser": {
-      "title_template": "{signal_count} anomalies need review",
-      "subtitle": "Factory wallets, launch bursts, ENS collisions and coordinated reviews, sorted by severity.",
       "cta": "Open Sybil Signals"
     }
   },
@@ -84,187 +42,32 @@
       "description": "Reputation breakdown for one agent on {network_label}: reviewers, timing, flags, and individual feedback events."
     },
     "confidence": {
-      "none": { "label": "No signal", "short": "none" },
-      "low": { "label": "Low confidence", "short": "low" },
-      "med": { "label": "Medium confidence", "short": "med" },
-      "high": { "label": "High confidence", "short": "high" }
+      "none": {"label": "No signal", "short": "none"},
+      "low": {"label": "Low confidence", "short": "low"},
+      "med": {"label": "Medium confidence", "short": "med"},
+      "high": {"label": "High confidence", "short": "high"}
     },
     "flags": {
-      "burst": {
-        "label": "Launch burst",
-        "sev": "med",
-        "tip_template": "{burst_count} reviews within {burst_window_min} min of first feedback"
-      },
-      "factory": {
-        "label": "Factory owner",
-        "sev": "high",
-        "tip_template": "Owner minted {owner_count:,} agents"
-      },
-      "collision": {
-        "label": "ENS collision",
-        "sev": "high",
-        "tip_template": "Shares {ens_name} with another agent"
-      },
-      "single": {
-        "label": "Low reviewer diversity",
-        "sev": "high",
-        "tip_template": "{unique_clients} unique wallets across {n} reviews"
-      },
-      "cliff": {
-        "label": "Score cliff",
-        "sev": "med",
-        "tip_template": "{composite:.1f} from only {n} reviews"
-      },
-      "punitive": {
-        "label": "Punitive reviewer present",
-        "sev": "med",
-        "tip_template": "Reviewed by a known down-scoring cluster"
-      },
-      "sparse": {
-        "label": "Sparse sample",
-        "sev": "low",
-        "tip_template": "Only {n} reviews"
-      },
-      "ghost": {
-        "label": "No feedback",
-        "sev": "low",
-        "tip_template": "Zero reputation events recorded"
-      }
-    },
-    "callouts": {
-      "launch_burst": {
-        "tone": "amber",
-        "icon": "bolt",
-        "title": "Launch burst detected.",
-        "body_template": "{n} reviews within {burst_window_min} minutes of first feedback from {unique_clients} wallets."
-      },
-      "score_cliff": {
-        "tone": "amber",
-        "icon": "flag",
-        "title": "Perfect score on a thin sample.",
-        "body_template": "{composite:.1f} composite from {n} reviews."
-      },
-      "factory_owner": {
-        "tone": "red",
-        "icon": "factory",
-        "title": "Factory-owned agent.",
-        "body_template": "Owner minted {owner_count:,} agents."
-      },
-      "ens_verified": {
-        "tone": "green",
-        "icon": "verified",
-        "title": "ENSIP-25 verified.",
-        "body_template": "{verified_count} on-chain verified name(s)."
-      },
-      "ens_collision_verified": {
-        "tone": "red",
-        "icon": "ens",
-        "title": "Verified ENS collision.",
-        "body_template": "Shares {ens_name} with other verified agents."
-      },
-      "no_feedback": {
-        "tone": "blue",
-        "icon": "ghost",
-        "title": "No reputation signal.",
-        "body_template": "Registered on {network_label} with no feedback events."
-      },
-      "high_confidence": {
-        "tone": "green",
-        "icon": "info",
-        "title": "Stable sample.",
-        "body_template": "{n} reviews from {unique_clients} mostly independent wallets over {span_days} days."
-      }
-    },
-    "confidence_reasons": {
-      "no_feedback": "No reputation events recorded",
-      "factory_owner": "Owner operates a mint factory ({owner_count:,} agents)",
-      "single_reviewer": "Reviews concentrated in few wallets",
-      "small_sample": "Very small sample ({n} reviews)",
-      "compressed_window": "Reviews compressed into <1h window",
-      "burst_timing": "Timing correlation high: {burst_count} reviews in {burst_window_min} min",
-      "perfect_thin": "Perfect-ish score on a thin sample",
-      "punitive_touch": "Includes scores from a punitive cluster",
-      "moderate_independence": "Moderate reviewer independence",
-      "strong_sample": "{n} reviews from {unique_clients} mostly independent wallets",
-      "independence_pct": "Reviewer independence {independence_pct:.0f}%"
+      "burst": {"label": "Launch burst", "sev": "med"},
+      "factory": {"label": "Factory owner", "sev": "high"},
+      "collision": {"label": "ENS collision", "sev": "high"},
+      "single": {"label": "Low reviewer diversity", "sev": "high"},
+      "cliff": {"label": "Score cliff", "sev": "med"},
+      "punitive": {"label": "Punitive reviewer present", "sev": "med"},
+      "sparse": {"label": "Sparse sample", "sev": "low"},
+      "ghost": {"label": "No feedback", "sev": "low"}
     }
   },
   "reviewer": {
     "page": {
       "title": "Reviewer lens",
       "description": "Client wallets that issued feedback on {network_label}. Edge color is score given; node size is review count."
-    },
-    "archetypes": {
-      "generous_sprayer": {
-        "label": "Generous sprayer",
-        "tone": "amber",
-        "note_template": "{total_reviews:,} reviews to {unique_agents:,} agents in {span_days} days."
-      },
-      "harsh_critic": {
-        "label": "Harsh-critic bot",
-        "tone": "amber",
-        "note_template": "{total_reviews:,} reviews averaging {avg_score:.1f}."
-      },
-      "punitive_cluster": {
-        "label": "Punitive cluster",
-        "tone": "red",
-        "note_template": "{total_reviews:,} reviews at avg {avg_score:.1f} over {span_days} days."
-      },
-      "prolific_mixed": {
-        "label": "Prolific mixed",
-        "tone": "grey",
-        "note_template": "{total_reviews:,} reviews, avg {avg_score:.1f}, broad coverage with mixed scores."
-      },
-      "sequential_burst": {
-        "label": "Sequential burst",
-        "tone": "amber",
-        "note_template": "{total_reviews:,} reviews concentrated on consecutive agent IDs, scripted pattern."
-      },
-      "one_each_broad": {
-        "label": "One-each broad",
-        "tone": "grey",
-        "note_template": "{total_reviews:,} reviews to {unique_agents:,} distinct agents."
-      },
-      "neutral": {
-        "label": "Standard reviewer",
-        "tone": "grey",
-        "note_template": "{total_reviews:,} reviews across {unique_agents:,} agents at avg {avg_score:.1f}."
-      }
-    },
-    "independence_callout": {
-      "high_timing_low": {
-        "tone": "blue",
-        "icon": "info",
-        "body_template": "Agent {agent_id}: {independence_pct:.0f}% of reviewers have reviewed ≤3 agents total. Many distinct wallets, but reviews cluster in time."
-      },
-      "low_independence": {
-        "tone": "amber",
-        "icon": "warn",
-        "body_template": "Agent {agent_id}: {independence_pct:.0f}% of reviewers have reviewed ≤3 agents total."
-      }
     }
   },
   "identity": {
     "page": {
       "title": "ENS & cross-chain identity",
       "description": "ENS links and cross-chain registration refs for agents on {network_label} (chain {chain_id})."
-    },
-    "collision_callout": {
-      "namespace_spray": {
-        "tone": "red",
-        "icon": "warn",
-        "body_template": "{ens_name} → {agent_count} agents, {verified_count} verified."
-      },
-      "verified_collision": {
-        "tone": "red",
-        "icon": "warn",
-        "body_template": "{ens_name} verified by {agent_count} agents."
-      }
-    },
-    "cross_chain_callout": {
-      "tone": "blue",
-      "icon": "info",
-      "body_template": "Cross-chain registration JSON can reference agents on other chains. Scores are not merged across chains."
     }
   },
   "sybil": {
@@ -272,126 +75,20 @@
       "title": "Anomaly inbox",
       "description": "Automated flags on {network_label}, sorted by severity. Review manually; nothing is auto-penalized."
     },
-    "severity_notes": {
-      "high": "High priority",
-      "med": "Review when relevant",
-      "low": "Informational"
-    },
-    "why_matters": {
-      "factory": "High mint volume from one owner can inflate registry counts without corresponding feedback.",
-      "downvote": "A single day with many low scores may indicate coordinated activity rather than individual reviews.",
-      "reviewer": "Reviewers that touch hundreds of agents with similar scores behave unlike typical users.",
-      "agent": "Composite scores depend on review count, timing, and reviewer overlap.",
-      "collision": "Multiple agents sharing one ENS name breaks one-name-one-agent assumptions.",
-      "mintspike": "Large single-day mint spikes often correlate with factory wallets.",
-      "ghost": "Agents with zero feedback carry no reputation signal.",
-      "integrity": "Out-of-range scores are excluded from aggregates and flagged for ingest review."
-    },
     "signal_types": {
-      "factory_owner": {
-        "cls": "Factory owner",
-        "icon": "factory",
-        "rule": "owner.agent_count ≥ 50",
-        "detail": "factory",
-        "title_template": "One wallet controls {owner_share:.0f}% of the registry",
-        "desc_template": "A single owner minted {agent_count:,} of {total_agents:,} agents; {with_feedback} have feedback."
-      },
-      "factory_owner_secondary": {
-        "cls": "Factory owner",
-        "icon": "factory",
-        "rule": "owner.agent_count ≥ 50",
-        "detail": "factory",
-        "title_template": "Factory wallet minted {agent_count:,} agents",
-        "desc_template": "Owner #{rank} controls {agent_count:,} agents ({with_feedback} with feedback). Cross-check against mint spikes."
-      },
-      "coordinated_downvote": {
-        "cls": "Coordinated downvote",
-        "icon": "trend",
-        "rule": "daily mean ≤ 5 with volume ≥ 100",
-        "detail": "downvote",
-        "title_template": "Mass negative-feedback event on {day}",
-        "desc_template": "{events:,} feedback events in one day at mean score {mean_score:.2f}."
-      },
-      "punitive_cluster": {
-        "cls": "Punitive cluster",
-        "icon": "thumbdown",
-        "rule": "reviewer avg ≤ 15 across ≥ 50 agents",
-        "detail": "reviewer",
-        "title_template": "Reviewer floods {agents_hit} agents with near-zero scores",
-        "desc_template": "{reviews:,} reviews at average {avg_score:.2f}, active {span_label}."
-      },
-      "launch_burst": {
-        "cls": "Launch burst",
-        "icon": "bolt",
-        "rule": "≥ 20 reviews within 2h of first feedback",
-        "detail": "agent",
-        "title_template": "Agent {agent_id}: {burst_count} reviews in the first {burst_window_min} minutes",
-        "desc_template": "{n} reviews in the first {burst_window_min} minutes; composite {composite:.1f}."
-      },
-      "ens_collision_spray": {
-        "cls": "ENS collision",
-        "icon": "ens",
-        "rule": "≥ 2 agents share one ENS name",
-        "detail": "collision",
-        "title_template": "{ens_name} claimed by {agent_count} different agents",
-        "desc_template": "{agent_count} agents claim {ens_name} ({verified_label})."
-      },
-      "ens_collision_verified": {
-        "cls": "ENS collision",
-        "icon": "ens",
-        "rule": "≥ 2 verified agents share one ENS name",
-        "detail": "collision",
-        "title_template": "{ens_name} verified by {agent_count} agents at once",
-        "desc_template": "Agents {agent_ids} both pass ENSIP-25 for {ens_name}."
-      },
-      "reviewer_spray": {
-        "cls": "Reviewer spray",
-        "icon": "broadcast",
-        "rule": "1 client → ≥ 500 agents reviewed",
-        "detail": "reviewer",
-        "title_template": "{reviews:,} reviews across {agents:,} agents in {span_days} days",
-        "desc_template": "≈{reviews_per_day:.0f} reviews/day to {agents:,} agents at avg {avg_score:.1f}."
-      },
-      "harsh_critic": {
-        "cls": "Harsh-critic bot",
-        "icon": "thumbdown",
-        "rule": "reviewer avg ≤ 45 across ≥ 100 agents",
-        "detail": "reviewer",
-        "title_template": "Systematic low-scorer touched {agents:,} agents",
-        "desc_template": "{reviews:,} reviews averaging {avg_score:.1f} over {span_label}."
-      },
-      "mint_spike": {
-        "cls": "Mint spike",
-        "icon": "spike",
-        "rule": "daily registrations ≥ 10× trailing median",
-        "detail": "mintspike",
-        "title_template": "{registrations:,} agents minted on {day}",
-        "desc_template": "One day produced {share:.1f}% of all agents in this corpus."
-      },
-      "score_cliff": {
-        "cls": "Score cliff",
-        "icon": "flag",
-        "rule": "composite ≥ 99.5 and n ≤ 12",
-        "detail": "agent",
-        "title_template": "Agent {agent_id} holds a perfect {composite:.1f} on {n} reviews",
-        "desc_template": "Composite {composite:.1f} from {n} reviews."
-      },
-      "ghost_fleet": {
-        "cls": "Ghost fleet",
-        "icon": "ghost",
-        "rule": "owner.agent_count ≥ 100 and feedback = 0",
-        "detail": "ghost",
-        "title_template": "{agent_count:,} agents minted, zero reputation events",
-        "desc_template": "{agent_count:,} registered agents with zero feedback events."
-      },
-      "data_integrity": {
-        "cls": "Data integrity",
-        "icon": "bug",
-        "rule": "score outside [0,100]",
-        "detail": "integrity",
-        "title_template": "Out-of-range score on agent {agent_id}",
-        "desc_template": "A feedback record carries score {score} on a 0–100 scale. Surfaced as an ingest sanity flag, not a reputation signal."
-      }
+      "factory_owner": {"cls": "Factory owner", "icon": "factory", "rule": "owner.agent_count ≥ 50", "detail": "factory"},
+      "factory_owner_secondary": {"cls": "Factory owner", "icon": "factory", "rule": "owner.agent_count ≥ 50", "detail": "factory"},
+      "coordinated_downvote": {"cls": "Coordinated downvote", "icon": "trend", "rule": "daily mean ≤ 5 with volume ≥ 100", "detail": "downvote"},
+      "punitive_cluster": {"cls": "Punitive cluster", "icon": "thumbdown", "rule": "reviewer avg ≤ 15 across ≥ 50 agents", "detail": "reviewer"},
+      "launch_burst": {"cls": "Launch burst", "icon": "bolt", "rule": "≥ 20 reviews within 2h of first feedback", "detail": "agent"},
+      "ens_collision_spray": {"cls": "ENS collision", "icon": "ens", "rule": "≥ 2 agents share one ENS name", "detail": "collision"},
+      "ens_collision_verified": {"cls": "ENS collision", "icon": "ens", "rule": "≥ 2 verified agents share one ENS name", "detail": "collision"},
+      "reviewer_spray": {"cls": "Reviewer spray", "icon": "broadcast", "rule": "1 client → ≥ 500 agents reviewed", "detail": "reviewer"},
+      "harsh_critic": {"cls": "Harsh-critic bot", "icon": "thumbdown", "rule": "reviewer avg ≤ 45 across ≥ 100 agents", "detail": "reviewer"},
+      "mint_spike": {"cls": "Mint spike", "icon": "spike", "rule": "daily registrations ≥ 10× trailing median", "detail": "mintspike"},
+      "score_cliff": {"cls": "Score cliff", "icon": "flag", "rule": "composite ≥ 99.5 and n ≤ 12", "detail": "agent"},
+      "ghost_fleet": {"cls": "Ghost fleet", "icon": "ghost", "rule": "owner.agent_count ≥ 100 and feedback = 0", "detail": "ghost"},
+      "data_integrity": {"cls": "Data integrity", "icon": "bug", "rule": "score outside [0,100]", "detail": "integrity"}
     }
   },
   "explorer": {
@@ -399,7 +96,6 @@
       "title": "Lookup",
       "description": "Search agents on {network_label} by ID, ENS name, owner address, or token_uri hostname."
     },
-    "empty_results": "No matching agents in this network corpus.",
     "results_template": "{count} result(s) · {total:,} on {network_label}"
   },
   "corpus": {
@@ -407,10 +103,6 @@
       "title": "Corpus & export",
       "description": "Local SQLite built from BigQuery ingest for {network_label}. All views read from the same file."
     },
-    "honesty_callout": {
-      "tone": "blue",
-      "icon": "info",
-      "body": "Batch index updated after ingest runs. Rebuild with agentindex-build after sync to refresh this dashboard."
-    }
+    "honesty_callout": {"tone": "blue", "icon": "info"}
   }
 }
