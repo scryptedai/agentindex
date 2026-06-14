@@ -21,11 +21,11 @@ poetry run python dev/smoketests/erc8004_day_index.py
 Each script exits `0` on success, non-zero on failure. Missing credentials should
 fail fast with a clear message (not hang or scan unbounded data).
 
-Always set `BQ_MAX_BYTES_BILLED` — every query uses `maximum_bytes_billed`.
+Always set `BQ_MAX_BYTES_BILLED`: every query uses `maximum_bytes_billed`.
 
 ---
 
-## Mission 1 — BigQuery connect
+## Mission 1: BigQuery connect
 
 `bigquery_connect.py` verifies:
 
@@ -37,7 +37,7 @@ Uses `BQ_DATASET` (default: `bigquery-public-data.crypto_ethereum`).
 
 ---
 
-## Mission 2 — ERC-8004 agent registry
+## Mission 2: ERC-8004 agent registry
 
 `erc8004_agents.py` runs adapted versions of the [workshop gist](https://gist.github.com/godeva/040270ac2924501063d875b302cf2e91)
 queries (BUILD.md §0) against **`bigquery-public-data.goog_blockchain_ethereum_mainnet_us.logs`**.
@@ -56,7 +56,7 @@ queries (BUILD.md §0) against **`bigquery-public-data.goog_blockchain_ethereum_
 
 First registrations observed **2026-02-01** (Jan 28 window returned 0 events).
 
-### Cost discipline — tight probe window required
+### Cost discipline: tight probe window required
 
 The gist's open-ended filter (`block_timestamp >= '2026-01-28'`) dry-runs at **~192 GB**
 and exceeds a 1 GB `BQ_MAX_BYTES_BILLED` cap.
@@ -91,12 +91,12 @@ from the contracts repo ABI and recorded in `docs/SOURCES.md`.
 
 ---
 
-## Mission 3 — One-day Identity + Reputation index slice
+## Mission 3: One-day Identity + Reputation index slice
 
 `erc8004_day_index.py` pulls **one calendar day** of mainnet logs for:
 
-- **Identity registry** — decode all `Registered` events that day
-- **Reputation registry** — decode all `NewFeedback` events that day
+- **Identity registry**: decode all `Registered` events that day
+- **Reputation registry**: decode all `NewFeedback` events that day
 
 ### Config
 

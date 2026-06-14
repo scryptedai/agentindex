@@ -10,6 +10,8 @@ requires-python = ">=3.11,<4.0"
 dependencies = [
     "google-cloud-bigquery (>=3.41.0,<4.0.0)",
     "python-dotenv (>=1.2.2,<2.0.0)",
+    "fastapi (>=0.115.0,<1.0.0)",
+    "uvicorn[standard] (>=0.32.0,<1.0.0)",
 ]
 
 [project.scripts]
@@ -18,6 +20,7 @@ agentindex-sync = "agentindex.cli:main_sync"
 agentindex-ens-backfill = "agentindex.cli:main_ens_backfill"
 agentindex-ens-sync = "agentindex.cli:main_ens_sync"
 agentindex-build = "agentindex.cli:main_build"
+frontend = "agentindex.frontend.server:main"
 
 [tool.poetry]
 packages = [{include = "agentindex", from = "src"}]

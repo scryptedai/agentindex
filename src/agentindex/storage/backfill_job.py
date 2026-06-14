@@ -11,12 +11,12 @@ class BackfillJob:
     """Tracks one registry backfill query end-to-end.
 
     Phases:
-      submitted  — job_id saved, query queued on BigQuery
-      running    — BigQuery still scanning (billable work in flight)
-      downloading — query DONE, streaming rows to local JSONL
-      complete   — rows on disk, safe to skip on re-run
-      failed     — terminal error; inspect `error` and re-run
-      expired    — job_id no longer recoverable; will submit fresh query
+      submitted: job_id saved, query queued on BigQuery
+      running: BigQuery still scanning (billable work in flight)
+      downloading: query DONE, streaming rows to local JSONL
+      complete: rows on disk, safe to skip on re-run
+      failed: terminal error; inspect `error` and re-run
+      expired: job_id no longer recoverable; will submit fresh query
     """
 
     registry: str

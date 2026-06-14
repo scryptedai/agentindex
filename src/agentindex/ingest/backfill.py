@@ -118,7 +118,7 @@ def backfill_network(settings: Settings, network: NetworkConfig) -> None:
         billed = state.total_bytes_billed if state else 0
         print(
             f"  {registry.name}: phase={job.phase} events={events:,} "
-            f"billed={billed:,} job_id={job.job_id or '—'}"
+            f"billed={billed:,} job_id={job.job_id or '-'}"
         )
     print(f"Meta: {layout.meta_path}")
 

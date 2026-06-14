@@ -118,7 +118,7 @@ class BigQueryJobManager:
                 record.mark_downloading(billed, total_rows)
                 persist()
                 print(
-                    f"  Job DONE — billed {_fmt_bytes(billed)}"
+                    f"  Job DONE: billed {_fmt_bytes(billed)}"
                     + (f", {total_rows:,} rows ready" if total_rows is not None else "")
                 )
                 return job
@@ -135,11 +135,11 @@ class BigQueryJobManager:
     ) -> tuple[int, dict[str, Any] | None]:
         """Stream query results to JSONL. Resumes via start_index without re-scanning."""
         if not job.destination:
-            raise RuntimeError("Job has no destination table — cannot download results")
+            raise RuntimeError("Job has no destination table: cannot download results")
 
         start_index = record.rows_written
         if start_index == 0 and output_path.is_file():
-            # Partial file without checkpoint — trust line count.
+            # Partial file without checkpoint: trust line count.
             start_index = count_lines(output_path)
             record.rows_written = start_index
 
@@ -185,7 +185,7 @@ class BigQueryJobManager:
         except gexc.NotFound:
             record.mark_expired(f"job_id {record.job_id} not found (results may have expired)")
             persist()
-            print(f"  Job {record.job_id} expired — will submit a new query")
+            print(f"  Job {record.job_id} expired: will submit a new query")
             return None
 
         job.reload()
@@ -202,7 +202,7 @@ class BigQueryJobManager:
                     total_rows = int(table.num_rows or 0)
                 record.mark_downloading(billed, total_rows)
                 persist()
-            print(f"  Recovered completed job {record.job_id} — download only, no re-scan")
+            print(f"  Recovered completed job {record.job_id}: download only, no re-scan")
             return job
 
         if job.state in ("PENDING", "RUNNING"):

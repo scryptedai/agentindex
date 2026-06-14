@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Mission 3 — One-day index slice for Identity + Reputation registries.
+Mission 3: One-day index slice for Identity + Reputation registries.
 
 Pulls a single calendar day of ERC-8004 events from mainnet logs (identity
 Registered + reputation NewFeedback). Dry-runs each query before execution.

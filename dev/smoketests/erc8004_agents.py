@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Mission 2 — ERC-8004 agent registry smoke test.
+Mission 2: ERC-8004 agent registry smoke test.
 
 Runs reference queries from the workshop gist (BUILD.md §0) against
 goog_blockchain_ethereum_mainnet_us.logs. Values are reference-only until
@@ -123,7 +123,7 @@ def main() -> None:
         client, adoption_curve_query(probe_start, probe_end), max_bytes, "adoption curve"
     )
     if not adoption_rows:
-        fail("adoption curve returned no rows — widen BQ_PROBE_START/END")
+        fail("adoption curve returned no rows: widen BQ_PROBE_START/END")
     for row in adoption_rows:
         print(f"  {row.day}: {row.new_agents} new agents")
 

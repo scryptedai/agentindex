@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Mission 1 — BigQuery connectivity smoke test.
+Mission 1: BigQuery connectivity smoke test.
 
 Verifies GCP credentials and fetches the latest indexed Ethereum block number
 from the public BigQuery dataset.
@@ -74,7 +74,7 @@ def main() -> None:
         fail(f"BigQuery query failed: {exc}")
 
     if row is None:
-        fail("query returned no rows — try widening the timestamp window")
+        fail("query returned no rows: try widening the timestamp window")
 
     bytes_billed = client.get_job(result.job_id).total_bytes_billed or 0
     ok(f"bytes billed: {bytes_billed:,}")

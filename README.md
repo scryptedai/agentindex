@@ -40,7 +40,7 @@ data/ethereum/
   reputation/2026-06-12.jsonl
 ```
 
-**One-time backfill** — two uncapped since-launch queries (~380 GB total). Job IDs
+**One-time backfill**: two uncapped since-launch queries (~380 GB total). Job IDs
 and download progress are saved to `meta.json`; re-run after a network interrupt to
 resume **without re-scanning** (if the BigQuery job already finished).
 
@@ -59,7 +59,7 @@ poetry run agentindex-backfill   # safe to re-run; resumes from job_id / row off
 
 BigQuery bills on **scan**, not on re-downloading results from a completed job.
 
-**Daily / on-demand sync** — capped day-by-day for new data only:
+**Daily / on-demand sync**: capped day-by-day for new data only:
 
 ```bash
 poetry run agentindex-sync
@@ -118,6 +118,30 @@ FROM agents WHERE first_seen_block > 24500000;
 ```
 
 Re-run `agentindex-build` after `agentindex-sync` to pick up new JSONL chunks.
+
+## Web dashboard (`poetry run frontend`)
+
+Reputation intelligence UI over the local SQLite corpus, not a leaderboard explorer.
+Reads live data from `data/agentindex.db` via FastAPI; copy and sybil signals are
+computed server-side from [`src/agentindex/frontend/narratives/templates.json`](src/agentindex/frontend/narratives/templates.json).
+
+```bash
+poetry run agentindex-build   # if needed
+poetry run frontend           # http://127.0.0.1:8787
+```
+
+| Route | Purpose |
+|-------|---------|
+| `/` | Overview, Sybil Signals, Agent dossier, Reviewer lens, Identity graph, Explorer |
+| `/api/bootstrap` | Full corpus + derived metrics + narrative copy (JSON) |
+| `/api/agents/{id}` | Single-agent dossier on demand |
+| `POST /api/reload` | Refresh cache after rebuild |
+
+Static assets live in [`frontend/`](frontend/) (ported from the Claude Design export).
+Narrative templates fill titles, KPI notes, callouts, and sybil signal descriptions from
+actual corpus statistics, not hard-coded LLM prose.
+
+Optional env: `FRONTEND_HOST`, `FRONTEND_PORT` (default `8787`), `FRONTEND_RELOAD=1` for dev.
 
 ## ENS enrichment (`data/ethereum/ens/`)
 
